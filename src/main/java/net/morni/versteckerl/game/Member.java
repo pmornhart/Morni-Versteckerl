@@ -4,6 +4,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
 import net.morni.versteckerl.rules.Helps;
+import net.morni.versteckerl.rules.Settlement;
 import org.bukkit.Location;
 
 /**
@@ -31,6 +32,9 @@ public final class Member {
     /** Im Rundenladen ausgegeben. */
     int spent;
     int helpsBought;
+    /** Abrechnung am Rundenende (für die Leiste, bis es zurück in die Gendarmerie geht) und Guthaben danach. */
+    Settlement bill;
+    long balanceAfter;
     final Map<Helps.Help, Integer> helpUses = new EnumMap<>(Helps.Help.class);
     /** Tick, ab dem eine Hilfe wieder geht. */
     final Map<Helps.Help, Long> helpReady = new EnumMap<>(Helps.Help.class);
@@ -92,6 +96,16 @@ public final class Member {
     /** Punkte der Runde, die noch übrig sind (gesammelt minus im Rundenladen ausgegeben). */
     public int available() {
         return Math.max(0, points - spent);
+    }
+
+    /** Abrechnung dieser Runde, {@code null} solange die Runde läuft. */
+    public Settlement bill() {
+        return bill;
+    }
+
+    /** Guthaben nach der Abrechnung. */
+    public long balanceAfter() {
+        return balanceAfter;
     }
 
     public int spent() {

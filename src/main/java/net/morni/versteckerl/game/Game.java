@@ -1426,6 +1426,8 @@ public final class Game {
         Settlement bill = Settlement.of(m.points, m.spent, winH || winS, data.streak(), data.dailyOpen(today), rewards);
         data.settle(bill, today, m.helpsBought);
         plugin.store().save(data);
+        m.bill = bill;
+        m.balanceAfter = data.balance();
         long now = System.currentTimeMillis();
         plugin.board().put(Leaderboard.Board.POINTS, m.name, data.bestPoints(), now);
         plugin.board().put(Leaderboard.Board.TOTAL, m.name, data.points(), now);

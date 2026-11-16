@@ -130,12 +130,14 @@ start_server() {
   : > console.log
   nice -n 15 "$JAVA" -Xms1G -Xmx2G -jar paper.jar --nogui < /dev/null > console.log 2>&1 &
   PID=$!
+  # Bereit erst, wenn Versteckerl steht und RCON lauscht (ist die Welt schon gebaut, meldet sich Versteckerl vor RCON).
   for _ in $(seq 1 300); do
-    if grep -q "Versteckerl ist bereit" console.log; then break; fi
+    if grep -q "Versteckerl ist bereit" console.log && grep -q "RCON running on" console.log; then break; fi
     if ! kill -0 "$PID" 2>/dev/null; then echo "Server ist abgestürzt:"; tail -40 console.log; exit 1; fi
     sleep 1
   done
   grep -q "Versteckerl ist bereit" console.log || { echo "Versteckerl wurde nicht bereit:"; tail -40 console.log; exit 1; }
+  grep -q "RCON running on" console.log || { echo "RCON lauscht nicht:"; tail -40 console.log; exit 1; }
   grep -E "Fertig gebaut|Versteckerl ist bereit|Netzwerk" console.log || true
 }
 stop_server() {

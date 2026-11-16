@@ -4,6 +4,7 @@ import net.morni.versteckerl.data.Leaderboard;
 import net.morni.versteckerl.game.Game;
 import net.morni.versteckerl.game.Member;
 import net.morni.versteckerl.hall.HallMenus;
+import net.morni.versteckerl.rules.Settlement;
 import net.morni.versteckerl.world.HallPlan;
 import net.morni.versteckerl.world.MapType;
 import java.util.ArrayList;
@@ -46,9 +47,16 @@ public final class Boards {
             };
             lines.add(Texts.text(lang, phase, Placeholder.unparsed("time", Ui.clock(g.secondsLeft()))));
             lines.add(Component.text(" "));
+            Member me = g.member(p.getUniqueId());
+            if (me != null && me.bill() != null) {
+                bill(lines, lang, me);
+                lines.add(Component.text("   "));
+                lines.add(Texts.text(lang, "side.site"));
+                sidebar.show(p, Texts.text(lang, "side.title"), lines);
+                continue;
+            }
             lines.add(Texts.text(lang, "side.hiders", Placeholder.unparsed("n", String.valueOf(g.count(Member.Role.HIDER)))));
             lines.add(Texts.text(lang, "side.seekers", Placeholder.unparsed("n", String.valueOf(g.count(Member.Role.SEEKER)))));
-            Member me = g.member(p.getUniqueId());
             if (me != null) {
                 lines.add(Component.text("  "));
                 lines.add(Texts.text(lang, me.hider() ? "side.role.hider" : "side.role.seeker"));
@@ -68,6 +76,24 @@ public final class Boards {
             lines.add(Texts.text(lang, "side.site"));
             sidebar.show(p, Texts.text(lang, "side.title"), lines);
         }
+    }
+
+    /** Nach der Runde: die Abrechnung (wie im Chat, aber bleibt stehen, bis es zurück in die Gendarmerie geht). */
+    private static void bill(List<Component> lines, String lang, Member me) {
+        Settlement b = me.bill();
+        lines.add(Texts.text(lang, "side.bill.head"));
+        lines.add(Texts.text(lang, "side.bill.round", Placeholder.unparsed("n", String.valueOf(b.round()))));
+        if (b.spent() > 0) {
+            lines.add(Texts.text(lang, "side.bill.spent", Placeholder.unparsed("n", String.valueOf(b.spent()))));
+        }
+        if (b.streakBonus() > 0) {
+            lines.add(Texts.text(lang, "side.bill.streak", Placeholder.unparsed("n", String.valueOf(b.streakBonus()))));
+        }
+        if (b.daily() > 0) {
+            lines.add(Texts.text(lang, "side.bill.daily", Placeholder.unparsed("n", String.valueOf(b.daily()))));
+        }
+        lines.add(Texts.text(lang, "side.bill.total", Placeholder.unparsed("n", String.valueOf(b.credit()))));
+        lines.add(Texts.text(lang, "side.bill.balance", Placeholder.unparsed("n", String.valueOf(me.balanceAfter()))));
     }
 
     /** Leiste in der Gendarmerie. */

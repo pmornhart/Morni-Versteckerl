@@ -239,7 +239,7 @@ public final class Texts {
     private static void menus() {
         t("menu.vote.title", "Karte wählen", "Vote for a map");
         t("menu.vote.shapes", "<gray>Gestalten: <white><list></white></gray>", "<gray>Disguises: <white><list></white></gray>");
-        t("menu.vote.shop-shapes", " (+<n> aus dem Kramerladen)", " (+<n> from the general store)");
+        t("menu.vote.shop-shapes", " (+<n> aus dem Laden)", " (+<n> from the store)");
         t("menu.vote.shop", "<gray>Aus dem Kramerladen: <au><list></au></gray>", "<gray>From the general store: <au><list></au></gray>");
         t("menu.vote.votes", "<gray>Stimmen: <white><n></white></gray>", "<gray>Votes: <white><n></white></gray>");
         t("menu.vote.busy", "<gray>Läuft gerade (<white><n></white> versteckt) – klicken zum Zuschauen</gray>",
@@ -413,6 +413,13 @@ public final class Texts {
         t("side.points.left", "<gray>Punkte:</gray> <au><n></au> <gray>(übrig <white><left></white>)</gray>",
                 "<gray>Points:</gray> <au><n></au> <gray>(<white><left></white> left)</gray>");
         t("side.title-line", "<au><title></au>", "<au><title></au>");
+        t("side.bill.head", "<au><b>Abrechnung</b></au>", "<au><b>Your tally</b></au>");
+        t("side.bill.round", "<gray>Aus der Runde:</gray> <au>+<n></au>", "<gray>From the round:</gray> <au>+<n></au>");
+        t("side.bill.spent", "<gray>Für Hilfen:</gray> <red>−<n></red>", "<gray>Spent on helps:</gray> <red>−<n></red>");
+        t("side.bill.streak", "<gray>Siegesserie:</gray> <au>+<n></au>", "<gray>Winning streak:</gray> <au>+<n></au>");
+        t("side.bill.daily", "<gray>Erster Sieg heute:</gray> <au>+<n></au>", "<gray>First win today:</gray> <au>+<n></au>");
+        t("side.bill.total", "<em>= +<n> ✦ aufs Guthaben</em>", "<em>= +<n> ✦ to your balance</em>");
+        t("side.bill.balance", "<gray>Guthaben jetzt:</gray> <au><n> ✦</au>", "<gray>Balance now:</gray> <au><n> ✦</au>");
         t("side.hall.balance", "<gray>Guthaben:</gray> <au><n> ✦</au>", "<gray>Balance:</gray> <au><n> ✦</au>");
         t("side.hall.total", "<gray>Punkte insgesamt:</gray> <white><n></white>", "<gray>Total points:</gray> <white><n></white>");
         t("side.hall.streak", "<gray>Siege in Folge:</gray> <em><n></em>", "<gray>Wins in a row:</gray> <em><n></em>");
@@ -492,8 +499,8 @@ public final class Texts {
         t("menu.shop.kind.favourite", "<gray>Lieblingsgestalt: <em><item></em></gray>", "<gray>Favourite: <em><item></em></gray>");
         t("menu.shop.kind.click", "<em>▶ Klicken zum Anschauen</em>", "<em>▶ Click to browse</em>");
         t("menu.shop.how", "<em>So verdienst du Punkte</em>", "<em>How to earn points</em>");
-        t("menu.shop.how.lore", "<gray>Als Gendarm: Treffer <au>+<hit></au>, Fund <au>+<find></au>,</gray>\n<gray>erster Fund der Runde <au>+<first></au>, Sieg <au>+<swin></au>.</gray>\n<gray>Versteckt: je halbe Minute <au>+<half></au>, Pfiff bis <au>+<wmax></au>,</gray>\n<gray>laut <au>+<loud></au> / sehr laut <au>+<vloud></au>, mutig (Gendarm bis <bblocks> Blöcke) bis <au>+<brave></au>,</gray>\n<gray>als Letzter versteckt <au>+<last></au>, bis zum Schluss <au>+<survive></au>.</gray>\n<gray>Danach: Siegesserie <au>+<streak></au> je Sieg in Folge,</gray>\n<gray>erster Sieg des Tages <au>+<daily></au>.</gray>\n<gray>Was übrig bleibt, kommt aufs Guthaben.</gray>",
-                "<gray>As a constable: hit <au>+<hit></au>, find <au>+<find></au>,</gray>\n<gray>first find of the round <au>+<first></au>, win <au>+<swin></au>.</gray>\n<gray>Hiding: every half minute <au>+<half></au>, whistle up to <au>+<wmax></au>,</gray>\n<gray>loud <au>+<loud></au> / very loud <au>+<vloud></au>, brave (constable within <bblocks> blocks) up to <au>+<brave></au>,</gray>\n<gray>last one hidden <au>+<last></au>, until the end <au>+<survive></au>.</gray>\n<gray>Then: winning streak <au>+<streak></au> per win in a row,</gray>\n<gray>first win of the day <au>+<daily></au>.</gray>\n<gray>Whatever is left goes to your balance.</gray>");
+        t("menu.shop.how.lore", "<gray>Als Gendarm: Treffer <au>+<hit></au>, Fund <au>+<find></au>,</gray>\n<gray>erster Fund der Runde <au>+<first></au>, Sieg <au>+<swin></au>.</gray>\n<gray>Versteckt: je halbe Minute <au>+<half></au>, Pfiff bis <au>+<wmax></au>,</gray>\n<gray>laut <au>+<loud></au> / sehr laut <au>+<vloud></au>, mutig (Gendarm keine <bblocks> Blöcke weg) bis <au>+<brave></au>,</gray>\n<gray>als Letzter versteckt <au>+<last></au>, bis zum Schluss <au>+<survive></au>.</gray>\n<gray>Danach: Siegesserie <au>+<streak></au> je Sieg in Folge,</gray>\n<gray>erster Sieg des Tages <au>+<daily></au>.</gray>\n<gray>Was übrig bleibt, kommt aufs Guthaben.</gray>",
+                "<gray>As a constable: hit <au>+<hit></au>, find <au>+<find></au>,</gray>\n<gray>first find of the round <au>+<first></au>, win <au>+<swin></au>.</gray>\n<gray>Hiding: every half minute <au>+<half></au>, whistle up to <au>+<wmax></au>,</gray>\n<gray>loud <au>+<loud></au> / very loud <au>+<vloud></au>, brave (constable less than <bblocks> blocks away) up to <au>+<brave></au>,</gray>\n<gray>last one hidden <au>+<last></au>, until the end <au>+<survive></au>.</gray>\n<gray>Then: winning streak <au>+<streak></au> per win in a row,</gray>\n<gray>first win of the day <au>+<daily></au>.</gray>\n<gray>Whatever is left goes to your balance.</gray>");
         t("menu.shop.maps", "<gray>Auf: <white><list></white></gray>", "<gray>On: <white><list></white></gray>");
         t("menu.shop.loud.1", "<gray>Leise – hört man nicht so weit.</gray>", "<gray>Quiet – doesn't carry far.</gray>");
         t("menu.shop.loud.2", "<gray>Laut – <au>+<n> Punkte</au> je Pfiff, hört man weiter.</gray>",

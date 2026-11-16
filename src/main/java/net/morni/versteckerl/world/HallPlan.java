@@ -254,17 +254,20 @@ public final class HallPlan {
     }
 
     /**
-     * Kramerstand in der Nordost-Ecke des Hofs: Theke mit Ladenglocke, Kuchen und Blumen, dahinter Regal aus Fässern
-     * mit Waren, Pfosten mit rot-weißer Markise, daneben ein Notenblock (für die Pfiff-Klänge) und Kisten.
+     * Kramerstand in der Nordost-Ecke des Hofs: Theke (oben überstehend, unten zu – man sieht nur Wastls Oberkörper)
+     * mit Blumen, Ladenglocke und Kuchen, vor Wastl frei; darüber zwei Laternen unter der Markise, dahinter Regal aus
+     * Fässern mit Waren, Pfosten mit rot-weißer Markise, daneben ein Notenblock (für die Pfiff-Klänge) und Kisten.
      */
     private static void kramer(Plan p) {
         for (int z = COUNTER_Z1; z <= COUNTER_Z2; z++) {
-            p.set(COUNTER_X, 1, z, "spruce_slab[type=top]");
+            p.set(COUNTER_X, 1, z, "spruce_stairs[facing=east,half=top,shape=straight,waterlogged=false]");
         }
         p.set(COUNTER_X, 2, COUNTER_Z1, "potted_red_tulip");
-        p.set(COUNTER_X, 2, COUNTER_Z1 + 1, "cake[bites=0]");
+        // COUNTER_Z1 + 1 bleibt frei: dort steht Wastl dahinter.
         p.set(COUNTER_X, 2, COUNTER_Z1 + 2, "bell[attachment=floor,facing=west,powered=false]");
-        p.set(COUNTER_X, 2, COUNTER_Z2, "lantern[hanging=false,waterlogged=false]");
+        p.set(COUNTER_X, 2, COUNTER_Z2, "cake[bites=0]");
+        p.set(COUNTER_X, 3, COUNTER_Z1, "lantern[hanging=true,waterlogged=false]");
+        p.set(COUNTER_X, 3, COUNTER_Z2, "lantern[hanging=true,waterlogged=false]");
         // Regal hinter dem Krämer: Fässer und Waren
         for (int z = COUNTER_Z1; z <= COUNTER_Z2; z++) {
             p.set(12, 1, z, "barrel[facing=west,open=false]");

@@ -52,8 +52,9 @@ Verdiente, sinkt nie – Steckbrief und Bestenliste) und das **Guthaben** zum Ei
 
 **Am Ende der Runde – die Abrechnung:** Was man in der Runde gesammelt und nicht im Rundenladen ausgegeben hat, kommt
 aufs Guthaben. Dazu der **Serien-Bonus** (je weiterem Sieg in Folge +3, höchstens +15) und einmal am Tag der
-**Tagesbonus** für den ersten Sieg (+25). Im Chat steht die Abrechnung Zeile für Zeile, in der Leiste rechts das
-Guthaben. Wer eine Runde verlässt, behält, was er gesammelt hat – die Siegesserie ist dann aber vorbei.
+**Tagesbonus** für den ersten Sieg (+25). Im Chat steht die Abrechnung Zeile für Zeile; bis es zurück in die
+Gendarmerie geht, bleibt sie auch in der Leiste rechts stehen, danach zeigt die Leiste das Guthaben. Wer eine Runde
+verlässt, behält, was er gesammelt hat – die Siegesserie ist dann aber vorbei.
 
 **Rundenladen – die Kramerkiste** (Schnellleiste oder `/laden`, nur in der Suchzeit, bezahlt mit Punkten der Runde;
 jede Hilfe begrenzt und mit Gegenmittel):

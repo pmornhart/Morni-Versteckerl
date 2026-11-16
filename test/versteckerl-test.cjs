@@ -567,7 +567,9 @@ async function main() {
   await cmd('versteckerladmin zeit 1');
   check('Zeit um: „Die Versteckten gewinnen!“', await waitFor(() => sawTitle(anna, /Versteckten gewinnen/), 4000) &&
     sawTitle(bert, /hiders win/) && sawTitle(anna, /Gewonnen/));
-  check('Rangliste im Chat', sees(dora, /1\. .* Punkte/) && sees(anna, /Deine Punkte:/));
+  // Titel und Rangliste gehen im selben Takt raus, kommen bei den Test-Spielern unter Last aber nacheinander an.
+  check('Rangliste im Chat', await waitFor(() => sees(dora, /1\. .* Punkte/) && sees(anna, /Deine Punkte:/), 3000),
+    `${dora.chats.slice(-3).join(' | ')} / ${anna.chats.slice(-3).join(' | ')}`);
   check('Annas Gestalt leuchtet zum Aufdecken', await countDisplays(DORF, 0) === 1);
   await sleep(1000);
   let st = statsOf('Anna').at(-1);
@@ -599,12 +601,19 @@ async function main() {
     st.add.earned === annaW.guthaben && st.add.bonus === 25 && st.add.helps === 2 && annaW.serie === 1,
     `${annaW.line} ${JSON.stringify(st.add)}`);
   check('Punkte insgesamt = Runde + Bonus (Ausgaben ziehen nichts ab)', annaW.gesamt === st.add.points + 25, annaW.line);
+  check('Abrechnung auch in der Leiste: Runde, Hilfen, Tagesbonus, = +N ✦, Guthaben jetzt',
+    anna.scoreLines.includes('Abrechnung') && anna.scoreLines.includes(`Aus der Runde: +${st.add.points}`) &&
+      anna.scoreLines.includes('Für Hilfen: −3') && anna.scoreLines.includes('Erster Sieg heute: +25') &&
+      anna.scoreLines.includes(`= +${annaW.guthaben} ✦ aufs Guthaben`) &&
+      anna.scoreLines.includes(`Guthaben jetzt: ${annaW.guthaben} ✦`),
+    anna.scoreLines.filter((l) => /Abrechnung|Runde:|Hilfen:|heute|aufs Guthaben|jetzt/.test(l)).join(' | '));
   check('Spielerdatei: guthaben, serie, tagesbonus', /guthaben: \d+/.test(readFile(playerFile('Anna'))) &&
     /tagesbonus: '?20\d\d-\d\d-\d\d/.test(readFile(playerFile('Anna'))), readFile(playerFile('Anna')).replace(/\n/g, ' '));
   check('Dora verlor: Abrechnung ohne Tagesbonus', sees(dora, /Abrechnung/) && !sees(dora, /erster Sieg heute/) &&
     (await wallet('Dora')).serie === 0, dora.chats.filter((c) => /Abrechnung|Guthaben/.test(c)).join(' | '));
   check('Leiste in der Gendarmerie zeigt das Guthaben', await waitFor(() => anna.scoreLines.some((l) =>
-    new RegExp(`Guthaben: ${annaW.guthaben} ✦`).test(l)), 3000), anna.scoreLines.filter((l) => /Guthaben/.test(l)).slice(-1)[0]);
+    new RegExp(`Guthaben: ${annaW.guthaben} ✦`).test(l)) && anna.scoreLines.includes(`Punkte insgesamt: ${annaW.gesamt}`),
+  3000), anna.scoreLines.filter((l) => /Guthaben|insgesamt/.test(l)).slice(-2).join(' | '));
 
   // ------------------------------------------------------------------ Runde 2: Heustadel – Gendarmen gewinnen
   clear(anna, bert, carl, dora);
