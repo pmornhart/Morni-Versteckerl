@@ -1,6 +1,6 @@
 # Morni Versteckerl
 
-Der Versteck-Modus des Minecraft-Netzwerks **morni.net**: **Verstecken mit Verwandlung.** Die
+Der Versteck-Modus des Minecraft-Netzwerks **MoinMorni** (moinmorni.net): **Verstecken mit Verwandlung.** Die
 Versteckten werden zu einem Gegenstand der Karte – Heuballen, Fass, Blumentopf, Kürbis … –, die Dorfgendarmen müssen
 sie finden. 4 bis 16 Leute. Ein Paper-Plugin für Paper 26.x (Java 25), im Netzwerk und auch ganz allein.
 
@@ -111,14 +111,14 @@ aus dem Kramerladen mindestens 6 genau gleich aussehende). Alles entsteht beim e
 | `/verlassen` | Runde oder Zuschauen verlassen – auch `/leave` |
 | `/laden` | in der Gendarmerie der Kramerladen, in der Runde die Kramerkiste (Hilfen) – auch `/shop`, `/kramerladen`, `/hilfen` |
 | `/stats [spieler]` · `/top` | Statistik und Steckbriefe (Bestenlisten) |
-| `/versteckerladmin info\|status\|start [karte]\|zeit <sek> [karte]\|sucher <namen…\|weg>\|ende [karte]\|guthaben <spieler> <zahl\|+zahl\|-zahl>\|laden <spieler>\|neubauen\|neuladen` | Verwaltung und Tests (`morninet.versteckerl.admin`, auch `/vkadmin`); `guthaben` setzt oder ändert das Guthaben (nie unter 0), `laden` zeigt Guthaben, Freigeschaltetes und Ausgerüstetes |
+| `/versteckerladmin info\|status\|start [karte]\|zeit <sek> [karte]\|sucher <namen…\|weg>\|ende [karte]\|guthaben <spieler> <zahl\|+zahl\|-zahl>\|laden <spieler>\|neubauen\|neuladen` | Verwaltung und Tests (`moinmorni.versteckerl.admin`, auch `/vkadmin`); `guthaben` setzt oder ändert das Guthaben (nie unter 0), `laden` zeigt Guthaben, Freigeschaltetes und Ausgerüstetes |
 
 Einstellungen stehen in der `config.yml` (Countdown, Zeiten, Anteil der Gendarmen, Treffer bis gefunden, Schaden für
 falsche Treffer, Pfiff-Pflicht, Hilfen, Punkte, Rundenladen, Preise und an/aus je Stück im Kramerladen …).
 
 ## Im Netzwerk
 
-Das Netzwerk-Plugin („MorniNet“) stellt die Schnittstelle `net.morni.api.MorniNet` bereit; Versteckerl nutzt
+Das Netzwerk-Plugin („MoinMorni“) stellt die Schnittstelle `de.moinmorni.api.MoinMorni` bereit; Versteckerl nutzt
 sie, wenn sie da ist (`softdepend`): Sprache der Spieler, Party (zusammen in eine Runde; wer später kommt, hilft in
 der laufenden Runde seiner Party als Gendarm mit), Statistik, Zustand für Lobby-Figur und Webseite, zurück zur Lobby.
 Ohne Netzwerk: Sprache aus dem Spiel (englischer Client → Englisch), Statistik nur lokal, „zur Lobby“ trennt die

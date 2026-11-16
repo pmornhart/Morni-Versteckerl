@@ -1,12 +1,12 @@
 # Stand – Morni Versteckerl
 
-**Was es ist:** Der Versteck-Modus des Netzwerks morni.net (Paper-Plugin `MorniVersteckerl`, Java 25, Paper 26.x):
+**Was es ist:** Der Versteck-Modus des MoinMorni-Netzwerks (Paper-Plugin `MorniVersteckerl`, Java 25, Paper 26.x):
 Verstecken mit Verwandlung für 4–16 Leute. Die Versteckten werden zu einem Gegenstand der Karte (Heuballen, Fass,
 Blumentopf …), die Dorfgendarmen suchen sie. Punkte aus den Runden kommen aufs Guthaben, damit kauft man bei Krämer
 Wastl in der Gendarmerie Gestalten, Pfiff-Klänge, Effekte und Titel. Repo `pmornhart/morni-versteckerl` (GitHub:
 `Morni-Versteckerl`), Jar `Morni-Versteckerl.jar`, Netzwerk-Kennung `versteckerl`, englisch „Hide & Seek“.
 
-## Aufbau (`src/main/java/net/morni/versteckerl/`)
+## Aufbau (`src/main/java/de/moinmorni/versteckerl/`)
 
 - `VersteckerlPlugin` (Start, Welt, Takt), `Settings`, `Texts` (de/en), `Ui`, `Items`, `Holo`, `Sidebar`, `LangBar`,
   `Boards` (Leiste + Tafeln der Gendarmerie), `Commands` (inkl. `/versteckerladmin`).
@@ -85,12 +85,10 @@ Wastl in der Gendarmerie Gestalten, Pfiff-Klänge, Effekte und Titel. Repo `pmor
   Tanzsaal ohne Decke, rosa Putz, Tafeltitel unter dem Vordach.
 - Nicht echt geprüft: Bedrock (Geyser zeigt Block-Anzeigen evtl. nicht), echte Spieler (Gleichgewicht, Zeiten),
   Paper 26.3 als Server, echter Hub.
-- **Umbenannt in morni.net** (16.11., Philip): Paket `net.morni.versteckerl`, Schnittstelle `net.morni.api.MorniNet`
-  (byte-gleich aus dem Netzwerk-Repo), `softdepend: [MorniNet]`, Recht `morninet.versteckerl.admin`, Texte und Leiste
-  „morni.net“, Test-Netzwerk `MorniNet` (`plugins/MorniNet/`, `MorniNet-FakeNetwork.jar`). Plugin-Name, Datenordner
-  (`plugins/MorniVersteckerl/`) und Kennung `versteckerl` bleiben – Spielerdaten gelten weiter. Unit-Tests,
-  `-Ppaper-26.1 compile` und echter Test **95/95** grün (eine Prüfung wartet jetzt kurz, bis das Paket da ist, das
-  Versteckte nach der Runde wieder zeigt – lief unter Last einmal zu früh).
+- **Name wieder MoinMorni** (16.11. abends, Philip: der neue Name war nicht verfügbar): Umbenennung vom Nachmittag
+  zurückgenommen – Paket `de.moinmorni.versteckerl`, Schnittstelle `de.moinmorni.api.MoinMorni` (byte-gleich aus dem
+  Netzwerk-Repo), `softdepend: [MoinMorni]`, Recht `moinmorni.versteckerl.admin`, Leiste „moinmorni.net“, Test-Netzwerk
+  wieder `MoinMorni`. Laden und alles andere bleiben; Version bleibt 0.2.0 (nie veröffentlicht).
 
 ## Offen
 

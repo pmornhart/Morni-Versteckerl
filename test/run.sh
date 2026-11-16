@@ -7,7 +7,7 @@
 #   KEEP=1 test/run.sh          # Server danach laufen lassen (zum Nachschauen)
 #   KEEP=1 SKIP_TEST=1 test/run.sh   # nur Server starten
 #
-# Erwartet (Vorgaben für die Sandbox von morni.net, alles per Umgebungsvariable änderbar):
+# Erwartet (Vorgaben für die MoinMorni-Sandbox, alles per Umgebungsvariable änderbar):
 #   VERSTECKERL_JAVA    Java 25 (Ordner; sonst die JDK 25 aus dem Cache, sonst JAVA_HOME)
 #   PAPER_JAR     Paper 26.1.2 (mineflayer kann bis 26.1)
 #   TEMPLATE      ein schon einmal gestarteter Paper-26.1.2-Ordner (libraries/, cache/, versions/ werden kopiert,
@@ -42,7 +42,7 @@ echo "== Bauen"
 (cd "$REPO" && nice -n 15 mvn -q -B -f test/fake-network/pom.xml package)
 
 echo "== Server einrichten: $SERVER"
-mkdir -p "$SERVER/plugins/MorniVersteckerl" "$SERVER/plugins/MorniNet"
+mkdir -p "$SERVER/plugins/MorniVersteckerl" "$SERVER/plugins/MoinMorni"
 if [ -d "$TEMPLATE" ] && [ ! -d "$SERVER/libraries" ]; then
   cp -r "$TEMPLATE/libraries" "$TEMPLATE/cache" "$TEMPLATE/versions" "$SERVER/" 2>/dev/null || true
 fi
@@ -109,16 +109,16 @@ rundenladen:
     preis: 3
 EOC
 # Test-Netzwerk: Bert spricht Englisch, Anna und Carl sind eine Party (Anna führt).
-cat > "$SERVER/plugins/MorniNet/fake.properties" <<'EOF'
+cat > "$SERVER/plugins/MoinMorni/fake.properties" <<'EOF'
 lang.Bert=en
 party.Anna=Anna,Carl
 EOF
-rm -f "$SERVER/plugins/MorniNet/calls.log"
+rm -f "$SERVER/plugins/MoinMorni/calls.log"
 rm -rf "$SERVER/plugins/MorniVersteckerl/spieler" "$SERVER/plugins/MorniVersteckerl/bestenliste.yml" "$SERVER/vk-laden-dora.txt"
 cp "$REPO/target/Morni-Versteckerl.jar" "$SERVER/plugins/"
 # nur ein Test-Netzwerk im Server (auch keine ältere Fassung unter anderem Namen)
 rm -f "$SERVER"/plugins/*-FakeNetwork.jar
-cp "$REPO/test/fake-network/target/MorniNet-FakeNetwork.jar" "$SERVER/plugins/"
+cp "$REPO/test/fake-network/target/MoinMorni-FakeNetwork.jar" "$SERVER/plugins/"
 for jar in ${EXTRA_PLUGINS:-}; do
   cp "$jar" "$SERVER/plugins/"
 done
