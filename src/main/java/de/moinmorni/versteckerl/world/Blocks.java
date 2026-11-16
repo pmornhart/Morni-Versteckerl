@@ -37,9 +37,12 @@ public final class Blocks {
     private Blocks() {
     }
 
-    /** Name ohne Zustand und ohne {@code minecraft:}. */
+    /** Name ohne Zustand und ohne {@code minecraft:} (Baupläne schreiben alles klein). */
     public static String base(String spec) {
-        return de.moinmorni.versteckerl.rules.Shape.baseName(spec);
+        int bracket = spec.indexOf('[');
+        int colon = spec.indexOf(':');
+        int from = colon >= 0 && (bracket < 0 || colon < bracket) ? colon + 1 : 0;
+        return bracket >= 0 ? spec.substring(from, bracket) : from == 0 ? spec : spec.substring(from);
     }
 
     /** Eigenschaften in Reihenfolge, z. B. {facing=north, half=bottom}. */

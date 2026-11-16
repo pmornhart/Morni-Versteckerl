@@ -100,12 +100,12 @@ public final class Boards {
         for (int i = 0; i < maps.length && i < HallPlan.STANDS.length; i++) {
             MapType m = maps[i];
             int[] t = HallPlan.STANDS[i];
-            Location at = new Location(plugin.world(), t[0] + 0.5, MapType.FLOOR_Y + 3.6, t[1] + 0.5);
-            hallHolos.add(Holo.spawn(plugin, at, lang -> stand(lang, m), 0.9f));
+            Location at = new Location(plugin.world(), t[0] + 0.5, MapType.FLOOR_Y + 2.95, t[1] + 1.2);
+            hallHolos.add(Holo.spawn(plugin, at, lang -> stand(lang, m), 0.8f, 160));
         }
-        Location board = new Location(plugin.world(), HallPlan.BOARD[0] + 0.5, MapType.FLOOR_Y + 2.4,
-                HallPlan.BOARD[1] + 0.9);
-        hallHolos.add(Holo.spawn(plugin, board, this::wanted, 0.8f));
+        Location board = new Location(plugin.world(), HallPlan.BOARD[0] + 1.6, MapType.FLOOR_Y + 1.9,
+                HallPlan.BOARD[1] + 0.5);
+        hallHolos.add(Holo.spawn(plugin, board, this::wanted, 0.6f, 200));
     }
 
     private Component stand(String lang, MapType m) {

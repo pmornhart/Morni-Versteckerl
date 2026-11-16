@@ -39,6 +39,9 @@ final class HeustadelPlan {
         orchard(p, r);
         woodshed(p, r);
         gate(p, r);
+        Decor.greenery(p, 17, -6, HALF, 8, 4, r, (x, z) -> false);
+        Decor.greenery(p, 17, 26, HALF, HALF, 2, r, (x, z) -> false);
+        Decor.greenery(p, -HALF, -14, -18, -11, 2, r, (x, z) -> false);
         DorfplatzPlan.booth(p, layout);
         Decor.flowers(p, -HALF, -HALF, HALF, HALF, 5, r, (x, z) -> Math.abs(x) <= 1 && z > 0);
         Decor.barrierBox(p, HALF, layout.ceiling());
@@ -254,7 +257,7 @@ final class HeustadelPlan {
 
     /** Bauernhaus im Osten (Tür nach Westen zum Hof). */
     private static void farmhouse(Plan p, Random r) {
-        Kit.House h = new Kit.House(17, -22, 28, -8, 'w', -15, "white_terracotta", "spruce", true, true,
+        Kit.House h = new Kit.House(17, -22, 28, -8, 'w', -15, "calcite", "spruce", true, true,
                 "spruce_planks");
         Kit.house(p, h, r);
         Kit.roundTable(p, 22, 1, -15, "spruce", LANTERN);

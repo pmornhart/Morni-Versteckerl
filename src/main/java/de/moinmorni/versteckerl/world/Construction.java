@@ -56,6 +56,7 @@ public final class Construction {
     private final Map<String, BlockData> cache = new HashMap<>();
     private final Set<String> broken = new HashSet<>();
     private BukkitTask task;
+    private volatile boolean planning;
     private int placed;
 
     public Construction(Plugin plugin, World world) {
@@ -66,10 +67,13 @@ public final class Construction {
     }
 
     public boolean running() {
-        return task != null;
+        return task != null || planning;
     }
 
-    /** Baut, falls nötig; {@code done} läuft auf dem Hauptthread, sobald alles steht. */
+    /**
+     * Baut, falls nötig; {@code done} läuft auf dem Hauptthread, sobald alles steht. Die Baupläne der Karten sind reiner
+     * Text und entstehen im Hintergrund – der Server läuft währenddessen weiter.
+     */
     public void ensure(boolean force, Runnable done) {
         YamlConfiguration state = readState();
         if (!force && state.getInt("version") == VERSION) {
@@ -96,21 +100,49 @@ public final class Construction {
         jobs.add(placeJob(hall, 0, MapType.FLOOR_Y, 0));
         runNow();
         later.forEach(b -> jobs.add(clearJob(b)));
-        for (MapType m : MapType.values()) {
-            Plan plan = m.plan();
-            boxes.add(boxOf(plan, m.originX(), MapType.FLOOR_Y, m.originZ()));
-            jobs.add(placeJob(plan, m.originX(), MapType.FLOOR_Y, m.originZ()));
-        }
-        jobs.add(deadline -> {
-            YamlConfiguration fresh = new YamlConfiguration();
-            fresh.set("version", VERSION);
-            fresh.set("bereiche", boxes);
-            writeState(fresh);
-            log.info("Fertig gebaut: " + placed + " Blöcke in " + (System.currentTimeMillis() - start) / 1000 + " s.");
-            done.run();
-            return true;
+        planning = true;
+        startTask();
+        var scheduler = plugin.getServer().getScheduler();
+        scheduler.runTaskAsynchronously(plugin, () -> {
+            Map<MapType, Plan> plans = new java.util.EnumMap<>(MapType.class);
+            RuntimeException failure = null;
+            try {
+                for (MapType m : MapType.values()) {
+                    plans.put(m, m.plan());
+                }
+            } catch (RuntimeException e) {
+                failure = e;
+            }
+            RuntimeException err = failure;
+            scheduler.runTask(plugin, () -> {
+                planning = false;
+                if (err != null) {
+                    log.log(Level.SEVERE, "Baupläne ließen sich nicht erstellen", err);
+                }
+                for (var e : plans.entrySet()) {
+                    MapType m = e.getKey();
+                    boxes.add(boxOf(e.getValue(), m.originX(), MapType.FLOOR_Y, m.originZ()));
+                    jobs.add(placeJob(e.getValue(), m.originX(), MapType.FLOOR_Y, m.originZ()));
+                }
+                jobs.add(deadline -> {
+                    YamlConfiguration fresh = new YamlConfiguration();
+                    fresh.set("version", VERSION);
+                    fresh.set("bereiche", boxes);
+                    writeState(fresh);
+                    log.info("Fertig gebaut: " + placed + " Blöcke in " + (System.currentTimeMillis() - start) / 1000
+                            + " s.");
+                    done.run();
+                    return true;
+                });
+                startTask();
+            });
         });
-        task = plugin.getServer().getScheduler().runTaskTimer(plugin, this::tick, 1L, 1L);
+    }
+
+    private void startTask() {
+        if (task == null) {
+            task = plugin.getServer().getScheduler().runTaskTimer(plugin, this::tick, 1L, 1L);
+        }
     }
 
     private void runNow() {
@@ -137,7 +169,7 @@ public final class Construction {
                 jobs.pollFirst();
             }
         }
-        if (jobs.isEmpty() && task != null) {
+        if (jobs.isEmpty() && task != null && !planning) {
             task.cancel();
             task = null;
         }

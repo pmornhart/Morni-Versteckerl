@@ -114,13 +114,16 @@ public final class Disguise {
         display.teleport(flat(feet));
     }
 
-    /** Einrasten: echter Block in der Zelle, Anzeige nur noch für den Besitzer. */
-    void solidify(Block at) {
+    /**
+     * Einrasten: echter Block in der Zelle, Anzeige nur noch für den Besitzer. {@code feetY}: Höhe der Füße (auf einem
+     * Trampelpfad steht man etwas tiefer als die Zelle).
+     */
+    void solidify(Block at, double feetY) {
         this.cell = at;
         this.before = at.getBlockData();
         this.solid = true;
         at.setBlockData(data(shape), false);
-        center = at.getLocation().add(0.5, 0, 0.5);
+        center = new Location(at.getWorld(), at.getX() + 0.5, feetY, at.getZ() + 0.5);
         if (display != null && display.isValid()) {
             display.teleport(flat(center));
             for (Player p : Bukkit.getOnlinePlayers()) {

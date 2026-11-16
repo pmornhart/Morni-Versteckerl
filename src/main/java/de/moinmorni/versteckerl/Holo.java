@@ -29,8 +29,13 @@ public final class Holo {
 
     /** Neue Schrift; {@code text} liefert den Inhalt je Sprache. */
     public static Holo spawn(Plugin plugin, Location at, Function<String, Component> text, float scale) {
-        TextDisplay d = make(at, text.apply("de"), scale);
-        TextDisplay e = make(at, text.apply("en"), scale);
+        return spawn(plugin, at, text, scale, 240);
+    }
+
+    /** Wie oben, mit eigener Zeilenbreite (in Pixeln der Schrift). */
+    public static Holo spawn(Plugin plugin, Location at, Function<String, Component> text, float scale, int lineWidth) {
+        TextDisplay d = make(at, text.apply("de"), scale, lineWidth);
+        TextDisplay e = make(at, text.apply("en"), scale, lineWidth);
         Holo h = new Holo(d, e);
         ALL.add(h);
         for (Player p : at.getWorld().getPlayers()) {
@@ -39,7 +44,7 @@ public final class Holo {
         return h;
     }
 
-    private static TextDisplay make(Location at, Component text, float scale) {
+    private static TextDisplay make(Location at, Component text, float scale, int lineWidth) {
         return at.getWorld().spawn(at, TextDisplay.class, t -> {
             t.text(text);
             t.setPersistent(false);
@@ -47,7 +52,7 @@ public final class Holo {
             t.setBillboard(Display.Billboard.CENTER);
             t.setBackgroundColor(Color.fromARGB(110, 0, 0, 0));
             t.setShadowed(true);
-            t.setLineWidth(240);
+            t.setLineWidth(lineWidth);
             t.setTransformation(new org.bukkit.util.Transformation(new org.joml.Vector3f(),
                     new org.joml.AxisAngle4f(), new org.joml.Vector3f(scale, scale, scale), new org.joml.AxisAngle4f()));
         });

@@ -134,6 +134,50 @@ final class Decor {
         p.set(x, y + 3, z, "oak_log[axis=y]");
     }
 
+    /** Busch aus Laub (Azaleen blühen manchmal), etwa 2 × 2 groß, oben gerundet. */
+    static void bush(Plan p, int x, int y, int z, Random r) {
+        String[] leaves = {"oak_leaves[persistent=true]", "azalea_leaves[persistent=true]",
+            "flowering_azalea_leaves[persistent=true]", "birch_leaves[persistent=true]"};
+        String main = leaves[r.nextInt(leaves.length)];
+        for (int dx = 0; dx <= 1; dx++) {
+            for (int dz = 0; dz <= 1; dz++) {
+                if (r.nextInt(5) > 0) {
+                    p.setIfEmpty(x + dx, y, z + dz, r.nextInt(4) == 0 ? leaves[r.nextInt(leaves.length)] : main);
+                }
+            }
+        }
+        p.setIfEmpty(x + r.nextInt(2), y + 1, z + r.nextInt(2), main);
+    }
+
+    /** Ein paar Büsche und Bäumchen auf freier Wiese in einem Rechteck (nicht auf Wegen, nicht in Häusern). */
+    static void greenery(Plan p, int x1, int z1, int x2, int z2, int count, Random r,
+            java.util.function.BiPredicate<Integer, Integer> keep) {
+        for (int i = 0; i < count * 4 && count > 0; i++) {
+            int x = x1 + r.nextInt(Math.max(1, x2 - x1 + 1));
+            int z = z1 + r.nextInt(Math.max(1, z2 - z1 + 1));
+            String g = p.get(x, 0, z);
+            if (g == null || !g.startsWith("grass_block") || keep.test(x, z)) {
+                continue;
+            }
+            boolean free = true;
+            for (int dx = -1; dx <= 2 && free; dx++) {
+                for (int dz = -1; dz <= 2 && free; dz++) {
+                    String a = p.get(x + dx, 1, z + dz);
+                    free = a == null || Blocks.passable(a);
+                }
+            }
+            if (!free) {
+                continue;
+            }
+            if (r.nextInt(3) == 0) {
+                fruitTree(p, x, 1, z, r);
+            } else {
+                bush(p, x, 1, z, r);
+            }
+            count--;
+        }
+    }
+
     /** Laternenpfahl: drei Zaunpfosten, oben eine Laterne. */
     static void lanternPost(Plan p, int x, int y, int z, String fence) {
         for (int i = 0; i < 3; i++) {

@@ -75,6 +75,8 @@ public final class Game {
     private static final int NO_LOCK_AFTER_HIT = 2 * SECOND;
     private static final double MOVE_EPS = 0.02;
     private static final double RELEASE_DIST = 0.2;
+    /** Ab diesem Bruchteil über der Blockunterkante steht man auf etwas fast Vollem (Trampelpfad, Acker). */
+    private static final double PATH_HEIGHT = 0.8;
     private static final int HEAL_EVERY = 3 * SECOND;
     private static final int SNIFF_EVERY = 4;
     private static final int WARN_BEFORE = 5 * SECOND;
@@ -583,9 +585,19 @@ public final class Game {
         }
     }
 
+    /**
+     * Die Zelle, in der jemand einrasten würde: dort, wo die Füße stehen – auf Trampelpfad oder Ackerboden (etwas
+     * niedriger als ein Block) die Zelle darüber.
+     */
+    static Block cellAt(Location feet) {
+        Block b = feet.getBlock();
+        double frac = feet.getY() - Math.floor(feet.getY());
+        return frac >= PATH_HEIGHT ? b.getRelative(BlockFace.UP) : b;
+    }
+
     /** Einrasten versuchen: Zelle frei, fester Boden darunter, niemand sonst drin. */
     private void lock(Player p, Member m) {
-        Block cell = p.getLocation().getBlock();
+        Block cell = cellAt(p.getLocation());
         String lang = plugin.lang(p);
         String why = lockProblem(p, cell);
         if (why != null) {
@@ -595,7 +607,7 @@ public final class Game {
             }
             return;
         }
-        m.disguise.solidify(cell);
+        m.disguise.solidify(cell, p.getLocation().getY());
         m.graceUntil = tick + GRACE;
         Location c = m.disguise.center().clone();
         c.setYaw(p.getLocation().getYaw());

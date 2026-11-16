@@ -19,9 +19,9 @@ public final class HallPlan {
     /** Alles innerhalb dieses Abstands zur Mitte gehört zur Gendarmerie. */
     public static final int REACH = 26;
     /** Schaukästen (x, z der Mitte), einer je Karte in der Reihenfolge von {@link MapType}. */
-    public static final int[][] STANDS = {{-7, -1}, {0, -1}, {7, -1}};
-    /** Anschlagtafel mit den Steckbriefen (Bestenliste). */
-    public static final int[] BOARD = {0, -6};
+    public static final int[][] STANDS = {{-8, -1}, {0, -1}, {8, -1}};
+    /** Anschlagtafel mit den Steckbriefen (Bestenliste), an der Westseite des Hofs, Blick nach Osten. */
+    public static final int[] BOARD = {-11, 4};
 
     private static final int COURT_X = 13;
     private static final int COURT_Z1 = -9;
@@ -38,6 +38,7 @@ public final class HallPlan {
         building(p, r);
         board(p);
         stands(p);
+        maypole(p);
         fountain(p);
         benches(p);
         trees(p, r);
@@ -79,7 +80,7 @@ public final class HallPlan {
     /** Gendarmeriehaus mit grünen Läden und Wappen-Fahnen. */
     private static void building(Plan p, Random r) {
         Plan h = new Plan();
-        Kit.house(h, new Kit.House(-10, -19, 10, -10, 's', 0, "white_terracotta", "spruce", true, true,
+        Kit.house(h, new Kit.House(-10, -19, 10, -10, 's', 0, "calcite", "spruce", true, true,
                 "spruce_planks"), r);
         // Grüne Fensterläden statt Holz
         java.util.Map<Long, String> green = new java.util.HashMap<>();
@@ -115,31 +116,36 @@ public final class HallPlan {
         }
     }
 
-    /** Anschlagtafel für die Steckbriefe (Bestenliste schwebt davor). */
+    /** Anschlagtafel für die Steckbriefe (Bestenliste schwebt davor), steht an der Westseite und schaut nach Osten. */
     private static void board(Plan p) {
         int x = BOARD[0];
         int z = BOARD[1];
-        for (int dx : new int[] {-3, 3}) {
+        for (int dz : new int[] {-3, 3}) {
             for (int y = 1; y <= 4; y++) {
-                p.set(x + dx, y, z, "spruce_log[axis=y]");
+                p.set(x, y, z + dz, "spruce_log[axis=y]");
             }
         }
-        for (int dx = -2; dx <= 2; dx++) {
-            p.set(x + dx, 2, z, "dark_oak_planks");
-            p.set(x + dx, 3, z, "dark_oak_planks");
-            p.set(x + dx, 4, z, "dark_oak_planks");
+        for (int dz = -2; dz <= 2; dz++) {
+            for (int y = 2; y <= 4; y++) {
+                p.set(x, y, z + dz, "dark_oak_planks");
+            }
+            p.set(x, 1, z + dz, "spruce_planks");
         }
-        for (int dx = -4; dx <= 4; dx++) {
-            p.set(x + dx, 5, z, "spruce_slab[type=bottom]");
-            p.set(x + dx, 5, z + 1, "spruce_slab[type=bottom]");
+        for (int dz = -4; dz <= 4; dz++) {
+            p.set(x, 5, z + dz, "spruce_slab[type=bottom]");
+            p.set(x - 1, 5, z + dz, "spruce_slab[type=bottom]");
+            p.set(x + 1, 5, z + dz, "spruce_slab[type=bottom]");
         }
-        p.set(x - 2, 1, z + 1, "potted_red_tulip");
-        p.set(x + 2, 1, z + 1, "potted_cornflower");
+        p.set(x + 1, 1, z - 3, "potted_red_tulip");
+        p.set(x + 1, 1, z + 3, "potted_cornflower");
+        p.set(x + 1, 4, z - 3, "lantern[hanging=false,waterlogged=false]");
+        p.set(x + 1, 4, z + 3, "lantern[hanging=false,waterlogged=false]");
     }
 
-    /** Schaukästen: Sockel aus Stein, darauf die Gestalten der Karte. */
+    /** Schaukästen: Sockel aus Stein, darauf die Gestalten der Karte, darüber ein kleines Vordach auf Pfosten. */
     private static void stands(Plan p) {
         MapType[] maps = MapType.values();
+        String[] roofs = {"spruce", "dark_oak", "oak"};
         for (int i = 0; i < maps.length && i < STANDS.length; i++) {
             int x = STANDS[i][0];
             int z = STANDS[i][1];
@@ -149,9 +155,55 @@ public final class HallPlan {
                 p.set(x + dx, 1, z, "polished_andesite");
                 p.set(x + dx, 2, z, shapes.get((dx + 1) * 2 % shapes.size()).block());
             }
-            p.set(x - 2, 1, z, "spruce_fence");
-            p.set(x + 2, 1, z, "spruce_fence");
+            for (int dx : new int[] {-2, 2}) {
+                for (int y = 1; y <= 4; y++) {
+                    p.set(x + dx, y, z, roofs[i] + "_fence");
+                }
+            }
+            for (int dx = -3; dx <= 3; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    p.set(x + dx, 5, z + dz, roofs[i] + "_slab[type=bottom]");
+                }
+            }
+            p.set(x - 2, 5, z, roofs[i] + "_planks");
+            p.set(x + 2, 5, z, roofs[i] + "_planks");
+            p.set(x - 3, 4, z + 1, "lantern[hanging=true,waterlogged=false]");
+            p.set(x + 3, 4, z + 1, "lantern[hanging=true,waterlogged=false]");
         }
+    }
+
+    /** Kleiner Maibaum mit Blumenrondell vorn im Hof. */
+    private static void maypole(Plan p) {
+        int x = -9;
+        int z = 8;
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dz = -2; dz <= 2; dz++) {
+                double d = Math.hypot(dx, dz);
+                if (d <= 2.3 && d > 0.5) {
+                    p.set(x + dx, 0, z + dz, d > 1.6 ? "polished_andesite" : "grass_block[snowy=false]");
+                    if (d <= 1.6) {
+                        p.set(x + dx, 1, z + dz, (dx + dz) % 2 == 0 ? "red_tulip" : "cornflower");
+                    }
+                }
+            }
+        }
+        p.set(x, 0, z, "polished_andesite");
+        for (int y = 1; y <= 11; y++) {
+            p.set(x, y, z, (y / 2) % 2 == 0 ? "white_concrete" : "light_blue_concrete");
+        }
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (dx != 0 || dz != 0) {
+                    p.set(x + dx, 9, z + dz, "spruce_leaves[persistent=true]");
+                }
+            }
+        }
+        p.set(x, 12, z, "spruce_leaves[persistent=true]");
+        p.set(x, 13, z, "spruce_leaves[persistent=true]");
+        p.set(x + 1, 6, z, "spruce_fence");
+        p.banner(x + 2, 6, z, "white_wall_banner[facing=east]", Decor.lozenges());
+        p.set(x - 1, 7, z, "spruce_fence");
+        p.banner(x - 2, 7, z, "white_wall_banner[facing=west]", Decor.lozenges());
     }
 
     /** Kleiner Brunnen im Südosten. */
@@ -179,16 +231,17 @@ public final class HallPlan {
     }
 
     private static void benches(Plan p) {
-        for (int z = 3; z <= 6; z++) {
-            p.set(-COURT_X + 1, 1, z, "spruce_stairs[facing=west,half=bottom,shape=straight]");
+        for (int z = 0; z <= 3; z++) {
+            p.set(COURT_X - 1, 1, z, "spruce_stairs[facing=east,half=bottom,shape=straight]");
         }
         for (int x = 4; x <= 6; x++) {
             p.set(x, 1, 10, "spruce_stairs[facing=south,half=bottom,shape=straight]");
             p.set(-x, 1, 10, "spruce_stairs[facing=south,half=bottom,shape=straight]");
         }
-        p.set(-COURT_X + 1, 1, 2, "barrel[facing=up,open=false]");
-        p.set(-COURT_X + 1, 2, 2, "potted_red_tulip");
-        p.set(-COURT_X + 1, 1, 7, "hay_block[axis=y]");
+        p.set(COURT_X - 1, 1, -1, "barrel[facing=up,open=false]");
+        p.set(COURT_X - 1, 2, -1, "potted_red_tulip");
+        p.set(-COURT_X + 1, 1, 11, "hay_block[axis=y]");
+        p.set(-COURT_X + 2, 1, 11, "barrel[facing=up,open=false]");
         p.set(12, 1, -6, "barrel[facing=up,open=false]");
         p.set(11, 1, -7, "pumpkin");
     }

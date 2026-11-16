@@ -35,6 +35,9 @@ final class DorfplatzPlan {
         hayfield(p, r);
         southGate(p, r);
         trees(p, r);
+        Decor.greenery(p, -HALF, 22, -8, HALF, 5, r, DorfplatzPlan::road);
+        Decor.greenery(p, 18, 10, HALF, HALF, 4, r, DorfplatzPlan::road);
+        Decor.greenery(p, -HALF, -12, -14, -10, 2, r, DorfplatzPlan::road);
         booth(p, layout);
         Decor.flowers(p, -HALF, -HALF, HALF, HALF, 5, r, DorfplatzPlan::road);
         Decor.barrierBox(p, HALF, layout.ceiling());
@@ -110,14 +113,17 @@ final class DorfplatzPlan {
                     p.set(x, -1, z, "stone_bricks");
                 } else if (d <= 3.3) {
                     p.set(x, 0, z, "stone_bricks");
-                    p.set(x, 1, z, "stone_brick_wall");
+                    p.set(x, 1, z, (x + z) % 2 == 0 ? "stone_brick_slab[type=bottom]" : "polished_andesite_slab[type=bottom]");
                 }
             }
         }
-        // Säule mit Wasserspeier und Laterne
+        // Säule mit Schale und Laterne
         p.set(0, 0, 0, "stone_bricks");
         p.set(0, 1, 0, "chiseled_stone_bricks");
         p.set(0, 2, 0, "stone_brick_wall");
+        for (int[] d : new int[][] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+            p.set(d[0], 2, d[1], "stone_brick_slab[type=top]");
+        }
         p.set(0, 3, 0, "polished_andesite");
         p.set(0, 4, 0, "lantern[hanging=false,waterlogged=false]");
         // Brunnenkübel daneben (Kessel-Attrappen)
@@ -276,7 +282,7 @@ final class DorfplatzPlan {
 
     /** Kramerladen im Westen: Auslage mit Fässern, Kürbissen und Töpfen unter einer gestreiften Markise. */
     private static void shop(Plan p, Random r) {
-        Kit.House h = new Kit.House(-27, -8, -15, 4, 'e', -2, "white_terracotta", "spruce", true, false, "oak_planks");
+        Kit.House h = new Kit.House(-27, -8, -15, 4, 'e', -2, "smooth_quartz", "spruce", true, false, "oak_planks");
         Kit.house(p, h, r);
         // Markise
         for (int z = -6; z <= 2; z++) {

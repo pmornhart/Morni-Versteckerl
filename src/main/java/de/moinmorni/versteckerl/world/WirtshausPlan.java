@@ -40,6 +40,8 @@ final class WirtshausPlan {
         beerGarden(p, r);
         skittles(p, r);
         backyard(p, r);
+        Decor.greenery(p, -HALF, -14, -24, 20, 4, r, (x, z) -> false);
+        Decor.greenery(p, -HALF, 22, HALF, HALF, 4, r, (x, z) -> Math.abs(x + 9) <= 2);
         DorfplatzPlan.booth(p, layout);
         Decor.flowers(p, -HALF, -HALF, HALF, HALF, 6, r, (x, z) -> Math.abs(x + 9) <= 1 && z > Z2);
         Decor.barrierBox(p, HALF, layout.ceiling());
@@ -72,6 +74,12 @@ final class WirtshausPlan {
         // Großes Alpenhaus: flaches Dach statt des steilen aus Kit.house
         p.clear(X1 - 1, Kit.UPPER_TOP + 1, Z1 - 1, X2 + 1, Kit.UPPER_TOP + 30, Z2 + 1);
         Kit.flatRoof(p, X1, Z1, X2, Z2, Kit.UPPER_TOP + 1, "dark_oak", false);
+        // Decke über dem Obergeschoss (unter dem Dach)
+        for (int x = X1 + 1; x < X2; x++) {
+            for (int z = Z1 + 1; z < Z2; z++) {
+                p.set(x, Kit.UPPER_TOP + 1, z, "dark_oak_planks");
+            }
+        }
         for (int y = Kit.UPPER_TOP + 1; y <= Kit.UPPER_TOP + 9; y++) {
             p.set(X2 - 4, y, Z1 + 3, "bricks");
             p.set(X1 + 6, y, Z1 + 4, "bricks");
@@ -88,7 +96,7 @@ final class WirtshausPlan {
             if (y == Kit.GROUND_TOP + 1) {
                 continue;
             }
-            String wall = y <= Kit.GROUND_TOP ? "white_terracotta" : "spruce_planks";
+            String wall = y <= Kit.GROUND_TOP ? "calcite" : "spruce_planks";
             for (int z = Z1 + 1; z < Z2; z++) {
                 p.set(WALL_X, y, z, wall);
             }
@@ -345,8 +353,10 @@ final class WirtshausPlan {
         for (int[] b : new int[][] {{1, 6}, {-20, -2}, {1, -4}, {-6, 6}}) {
             p.set(b[0], y, b[1], BARREL_UP);
         }
-        for (int x = -15; x <= -3; x += 6) {
-            Decor.hangingLantern(p, x, Kit.UPPER_TOP, -2, 0);
+        for (int x = -18; x <= 0; x += 6) {
+            for (int z = -12; z <= 4; z += 8) {
+                Decor.hangingLantern(p, x, Kit.UPPER_TOP, z, 0);
+            }
         }
         // Gästezimmer (Nord und Süd)
         for (int[] room : new int[][] {{-16, -8}, {-4, 6}}) {

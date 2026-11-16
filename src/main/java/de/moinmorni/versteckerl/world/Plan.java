@@ -51,7 +51,7 @@ public final class Plan {
     }
 
     public void set(int x, int y, int z, String spec) {
-        if (spec == null || "air".equals(Blocks.base(spec))) {
+        if (spec == null || spec.equals("air") || spec.equals("cave_air")) {
             blocks.remove(key(x, y, z));
             return;
         }

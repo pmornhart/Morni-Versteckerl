@@ -179,7 +179,15 @@ public final class Hall {
 
     /** Jede Sekunde: Countdown, Start. */
     public void tick() {
-        waiting.removeIf(u -> Bukkit.getPlayer(u) == null);
+        // Wer weg ist oder im Zuschauer-/Kreativmodus etwas verwaltet, wird nicht eingeplant (/verlassen holt zurück).
+        waiting.removeIf(u -> {
+            Player p = Bukkit.getPlayer(u);
+            if (p != null && (p.getGameMode() == GameMode.SPECTATOR || p.getGameMode() == GameMode.CREATIVE)) {
+                plugin.boards().sidebar().hide(p);
+                return true;
+            }
+            return p == null;
+        });
         ready.retainAll(waiting);
         votes.retain(waiting);
         if (!plugin.ready()) {
