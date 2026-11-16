@@ -235,8 +235,8 @@ public final class Texts {
         t("start.hider.title", "<au>Versteck dich!</au>", "<au>Go and hide!</au>");
         t("start.hider.sub", "<gray>Die Gendarmen kommen in <white><secs> s</white></gray>",
                 "<gray>The constables come in <white><secs> s</white></gray>");
-        t("start.hider.chat", "<gray>Du bist ein <au><shape></au>. Such dir eine andere <white>Gestalt</white> aus (erster Knopf) und dann ein gutes Versteck. Steh still, dann <white>rastest du ein</white> und bist ein echter Block. Bewegst du dich, springt er auf.</gray>",
-                "<gray>You're a <au><shape></au>. Pick another <white>disguise</white> (first button), then a good hiding spot. Stand still and you <white>lock in place</white> as a real block. Move, and it pops open again.</gray>");
+        t("start.hider.chat", "<gray>Deine Gestalt: <au><shape></au>. Such dir gern eine andere aus (erster Knopf), dann ein gutes Versteck. Steh still, dann <white>rastest du ein</white> und bist ein echter Block. Bewegst du dich, springt er auf.</gray>",
+                "<gray>Your disguise: <au><shape></au>. Pick another one if you like (first button), then a good hiding spot. Stand still and you <white>lock in place</white> as a real block. Move, and it pops open again.</gray>");
         t("start.seeker.title", "<em>Du bist Dorfgendarm!</em>", "<em>You're a village constable!</em>");
         t("start.seeker.sub", "<gray>Augen zu – in <white><secs> s</white> geht die Suche los</gray>",
                 "<gray>Eyes closed – the search starts in <white><secs> s</white></gray>");
@@ -259,7 +259,7 @@ public final class Texts {
                 "<em>✔ Locked in</em> <gray>– you're a real block now.</gray>");
         t("shape.change.used", "<gray>Deine Gestalt hast du in dieser Runde schon gewechselt.</gray>",
                 "<gray>You've already changed your disguise this round.</gray>");
-        t("shape.chosen", "<gray>Du bist jetzt ein <au><shape></au>.</gray>", "<gray>You're now a <au><shape></au>.</gray>");
+        t("shape.chosen", "<gray>Neue Gestalt: <au><shape></au>.</gray>", "<gray>New disguise: <au><shape></au>.</gray>");
         t("shape.only-hiders", "<gray>Gestalten gibt es nur für Versteckte.</gray>", "<gray>Disguises are only for hiders.</gray>");
         t("whistle.not-yet", "<gray>Pfeifen geht erst, wenn die Suche läuft.</gray>",
                 "<gray>You can whistle once the search is running.</gray>");
@@ -292,8 +292,8 @@ public final class Texts {
         t("found.title", "<red>Gefunden!</red>", "<red>Found!</red>");
         t("found.sub", "<gray>Jetzt suchst du als Gendarm mit.</gray>", "<gray>Now you search as a constable.</gray>");
         t("found.seeker", "<em>Gefunden: <hider></em>", "<em>Found: <hider></em>");
-        t("wrong.hit", "<red>Daneben!</red> <gray>Das war nur ein echter <white><thing></white>.</gray>",
-                "<red>Wrong!</red> <gray>That was just a real <white><thing></white>.</gray>");
+        t("wrong.hit", "<red>Daneben!</red> <gray>Das war echt (<white><thing></white>) – kostet dich Leben.</gray>",
+                "<red>Wrong!</red> <gray>That was real (<white><thing></white>) – it costs you health.</gray>");
         t("wrong.stun.title", "<red>Puh …</red>", "<red>Phew …</red>");
         t("wrong.stun.sub", "<gray>Zu viel danebengehauen – <white><secs> s</white> verschnaufen.</gray>",
                 "<gray>Too many wrong hits – catch your breath for <white><secs> s</white>.</gray>");
