@@ -82,12 +82,16 @@ final class Commands implements TabExecutor {
             }
             case "verlassen" -> {
                 Game g = plugin.games().of(p.getUniqueId());
-                if (g == null) {
-                    p.sendMessage(Texts.msg(lang, "leave.none"));
-                } else {
+                if (g != null) {
                     g.leave(p);
                     plugin.hall().enter(p);
                     p.sendMessage(Texts.msg(lang, "leave.done"));
+                } else if (!plugin.hall().inHall(p.getUniqueId())) {
+                    // Nach dem Zuschauer- oder Kreativmodus (Verwaltung) ist man nicht mehr eingeplant – zurück.
+                    plugin.hall().enter(p);
+                    p.sendMessage(Texts.msg(lang, "leave.done"));
+                } else {
+                    p.sendMessage(Texts.msg(lang, "leave.none"));
                 }
             }
             default -> {

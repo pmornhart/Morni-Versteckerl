@@ -43,20 +43,32 @@ Wastl in der Gendarmerie Gestalten, Pfiff-Klänge, Effekte und Titel. Repo `pmor
   (Werkbank, Schleifstein, Webstuhl, Blühender Busch, Lesepult, Kuchen, Kürbislaterne, Festtagskuchen – je mindestens
   6 gleich aussehende Attrappen auf den passenden Karten), 7 Pfiff-Klänge, 6 Fund-Effekte, 6 Spuren, 5 Sieg-Effekte,
   7 Titel; Kauf mit Nachfrage und Vorschau, Ausrüsten im Menü, Lieblingsgestalt. Alle Zahlen, Preise und an/aus je
-  Stück in der config.yml (`punkte`, `rundenladen`, `laden`). Bau-Version 2.
+  Stück in der config.yml (`punkte`, `rundenladen`, `laden`). Abrechnung im Chat und – bis es zurück in die
+  Gendarmerie geht – auch in der Leiste. Bau-Version 4.
 - 40 Unit-Tests grün (neu: Punkte/Pfiff/Mut/Serie, Abrechnung, Rundenladen-Regeln, Katalog, Kauf atomar und nie
   negativ, Spielerdatei mit Guthaben, alte Dateien, config.yml = Vorgaben, Preise/an-aus aus der config, Texte aller
   Stücke, gleich aussehende Attrappen der Laden-Gestalten). Übersetzt gegen Paper 26.3 und 26.1.
-- Echter Test (`test/run.sh`, Paper 26.1.2 + Test-Netzwerk, fünf Test-Spieler): **150/150** und nach einem Neustart
-  des Servers **4/4**, Server-Log ohne Fehler – zusätzlich zu allem Bisherigen: Krämer Wastl (Rechtsklick öffnet den
+- Echter Test (`test/run.sh`, Paper 26.1.2 + Test-Netzwerk, fünf Test-Spieler): **151/151** und nach einem Neustart
+  des Servers **5/5**, Server-Log ohne Fehler – zusätzlich zu allem Bisherigen: Krämer Wastl (Rechtsklick öffnet den
   Laden, englisch), Smaragd, sechs Abteilungen, „So verdienst du Punkte“, zu wenig Guthaben, mutiger Pfiff (+4),
   Kramerkiste (Lockpfiff mit Abklingzeit, noch ein Gestaltwechsel, noch eine Spürnase, Laterne, zu wenig Punkte für die
   Nebelwolke, Nebelwolke macht die Gendarmin kurz blind), Abrechnung (Runde, Ausgaben, Tagesbonus, Guthaben, Punkte
   insgesamt, Leiste), Kauf mit Nachfrage (Werkbank, Kuhglocke, Titel), Lieblingsgestalt an/aus, Titel mit Bedingung,
   Netzwerk-Statistik (`earned`, `bonus`, `helps`, `best_streak`, `unlocks`, `spent`), Spielerdatei, Lieblingsgestalt
   Werkbank in der Runde (eingerastet als echte Werkbank), gesperrte Gestalt für andere, Kuhglocke +2, Siegesserie ohne
-  zweiten Tagesbonus, Titel in der Rangliste; nach dem Neustart Guthaben, Freigeschaltetes, Ausgerüstetes, Wastl und
-  Tafeln wie vorher.
+  zweiten Tagesbonus, Titel in der Rangliste, Abrechnung in der Leiste; nach dem Neustart Guthaben, Freigeschaltetes,
+  Ausgerüstetes, Wastl und Tafeln wie vorher, `/verlassen` holt nach dem Zuschauermodus zurück in die Gendarmerie.
+- Bilder mit echtem Client 26.3 (nur lokal unter `~/mm-cache/bilder-versteckerl/laden/`): Kramerstand mit Wastl (nah
+  und weit), Spuren im Hof, Kramerladen (Übersicht, „So verdienst du Punkte“, Gestalten, Pfiff-Klänge mit Nachfrage
+  und gekauft, Fund-Effekte, Titel mit Bedingung, Kauf im Chat), neue Gestalten zwischen echten Attrappen (Werkbank in
+  der Schmiede, Kuchen am Tresen, Blühender Busch, Kürbislaterne), Fund-Effekt weiß-blau, Sieg-Feuerwerk, eine eigene
+  Runde der Kamera (Pfiff mit Kuhglocke „+7 – mutig +4 · laut +2“, Kramerkiste, Lockpfiff, Abrechnung in Chat und
+  Leiste). Dabei verbessert: Kuchen und Glocke verdeckten Wastls Gesicht und man sah seine Füße unter der Theke (jetzt
+  Theke oben überstehend und unten zu, vor Wastl frei, Laternen an den Enden der Markise statt vor seinem Schild),
+  Abrechnung zusätzlich in der Leiste (im Chat rutscht sie schnell weg), Schaukästen kürzer („+5 aus dem Laden“),
+  Erklärung „mutig“ verständlicher; `/verlassen` holte nach dem Zuschauer-/Kreativmodus nicht zurück (sagte „schon in
+  der Gendarmerie“, man war aber nicht mehr eingeplant). Hinweis für Bilder: der Kamera-Client braucht
+  `--option chatScale:1.0`, sonst ist der Chat unsichtbar.
 - Version 0.1.0: alles aus dem README (noch nicht veröffentlicht – das erste Release wird 0.2.0).
 - 27 Unit-Tests grün (Texte, Rollen, Punkte, Sieg, Pfiff-Pflicht, Countdown-Regel, Treffer-Rechnung, Gestalten,
   Gruppen/Abstimmung, Spielerdaten, Steckbriefe, Baupläne: ≥ 6 Attrappen je Gestalt, freie Startpunkte, dichte

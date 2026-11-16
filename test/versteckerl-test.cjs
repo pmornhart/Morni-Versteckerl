@@ -820,6 +820,17 @@ async function afterRestart() {
   check('Werkbank ist noch Lieblingsgestalt', /Lieblingsgestalt/.test(loreOf(windowItem(dora, /^Werkbank$/))),
     loreOf(windowItem(dora, /^Werkbank$/)));
   await closeWindow(dora);
+  // Verwaltung: wer im Zuschauermodus war, ist nicht mehr eingeplant – /verlassen holt zurück in die Gendarmerie
+  await cmd('gamemode spectator Dora');
+  await sleep(1600);
+  const away = String((await cmd('versteckerladmin status'))[0]);
+  await cmd('gamemode adventure Dora');
+  dora.chat('/verlassen');
+  await sleep(1600);
+  const back = String((await cmd('versteckerladmin status'))[0]);
+  check('Nach dem Zuschauermodus holt /verlassen zurück in die Gendarmerie', /gendarmerie=0/.test(away) &&
+    /gendarmerie=1/.test(back) && dora.entity.position.distanceTo(new Vec3(0.5, FLOOR + 1, 7.5)) < 1.5,
+  `${away.split('\n')[0]} → ${back.split('\n')[0]}`);
   dora.quit();
   await sleep(1000);
   const failed = results.filter((r) => !r.ok);
