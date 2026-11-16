@@ -26,6 +26,8 @@ class SettingsTest {
         assertEquals(Settings.defaults().rewards(), s.rewards());
         assertTrue(s.shop());
         assertTrue(s.roundShop());
+        assertTrue(c.contains("rueckkehr-sekunden"), "rueckkehr-sekunden fehlt in der config.yml");
+        assertEquals(Settings.COMEBACK_SECONDS, s.comebackSeconds());
         for (var e : Helps.defaults().entrySet()) {
             Helps.Rule d = e.getValue();
             Helps.Rule got = s.help(e.getKey());
@@ -65,6 +67,10 @@ class SettingsTest {
         assertEquals(0, s.rewards().hit(), "nie negativ");
         assertEquals(2, s.help(Helps.Help.LATERNE).price());
         assertFalse(s.help(Helps.Help.LOCKPFIFF).on());
+        c.set("rueckkehr-sekunden", 0);
+        assertEquals(0, Settings.load(c).comebackSeconds(), "0 = aus");
+        c.set("rueckkehr-sekunden", 99_999);
+        assertEquals(Settings.MAX_COMEBACK_SECONDS, Settings.load(c).comebackSeconds());
         c.set("laden.an", false);
         assertFalse(Settings.load(c).offered(Catalog.get("pfiff:kuhglocke")), "Laden zu: nichts zu haben");
     }

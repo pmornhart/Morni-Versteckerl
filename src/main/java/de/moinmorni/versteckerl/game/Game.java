@@ -10,6 +10,7 @@ import de.moinmorni.versteckerl.data.Leaderboard;
 import de.moinmorni.versteckerl.data.PlayerData;
 import de.moinmorni.versteckerl.hall.Shop;
 import de.moinmorni.versteckerl.rules.Catalog;
+import de.moinmorni.versteckerl.rules.Comeback;
 import de.moinmorni.versteckerl.rules.Helps;
 import de.moinmorni.versteckerl.rules.Outcome;
 import de.moinmorni.versteckerl.rules.Rewards;
@@ -23,6 +24,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -113,6 +115,10 @@ public final class Game {
     private final LangBar timeBar = new LangBar(BossBar.Color.GREEN, BossBar.Overlay.PROGRESS);
     private final Random random = new Random();
     private final long started = System.currentTimeMillis();
+    /** Wer gerade die Verbindung verloren hat und zurückkommen darf (Frist in Ticks dieser Runde). */
+    private final Comeback comeback = new Comeback();
+    /** Wem das Netzwerk gerade „spielt“ glaubt (nur Änderungen werden gemeldet). */
+    private final Set<UUID> told = new HashSet<>();
     private Phase phase = Phase.HIDE;
     private int phaseTicks;
     private long seekElapsed;
@@ -167,6 +173,9 @@ public final class Game {
                 p.sendMessage(Texts.msg(lang, "start.seeker.chat"));
             }
         }
+        for (Player p : players) {
+            tellPlaying(p, true);
+        }
         startHiders = count(Member.Role.HIDER);
         broadcast(lang -> Texts.msg(lang, "start.roles", Placeholder.unparsed("seekers", names(Member.Role.SEEKER)),
                 Placeholder.unparsed("n", String.valueOf(count(Member.Role.HIDER)))));
@@ -203,6 +212,17 @@ public final class Game {
 
     public int count(Member.Role role) {
         return (int) members.values().stream().filter(m -> m.online && m.role == role).count();
+    }
+
+    /** Wie {@link #count}, aber mit denen, die gerade weg sind und zurückkommen dürfen – auf sie wartet die Runde. */
+    private int countIn(Member.Role role) {
+        return (int) members.values().stream().filter(m -> (m.online || comeback.waitingFor(m.uuid)) && m.role == role)
+                .count();
+    }
+
+    /** Wartet die Runde gerade auf diese Person (Verbindung verloren, Platz noch frei)? */
+    public boolean waitingFor(UUID uuid) {
+        return comeback.waitingFor(uuid);
     }
 
     public int playerCount() {
@@ -265,9 +285,9 @@ public final class Game {
                 Block c = m.disguise.cell();
                 cell = c.getX() + "," + c.getY() + "," + c.getZ();
             }
-            sb.append(String.format(Locale.ROOT, " %s=%s:%s:%d:%d:%d:%d:%d:%s:%s:%d", m.name, m.role, shape,
+            sb.append(String.format(Locale.ROOT, " %s=%s:%s:%d:%d:%d:%d:%d:%s:%s:%d:%d", m.name, m.role, shape,
                     m.disguise != null && m.disguise.solid() ? 1 : 0, m.lives, m.points, m.finds, m.whistles, cell,
-                    m.online ? "on" : "off", m.spent));
+                    m.online ? "on" : "off", m.spent, comeback.secondsLeft(m.uuid, tick)));
         }
         return sb.toString();
     }
@@ -316,6 +336,7 @@ public final class Game {
     }
 
     private void releaseSeeker(Player p, Member m) {
+        m.released = true;
         p.teleport(seekerStart());
         p.removePotionEffect(PotionEffectType.BLINDNESS);
         p.removePotionEffect(PotionEffectType.SLOWNESS);
@@ -360,13 +381,15 @@ public final class Game {
             timeBar.show(p, lang);
         }
         Holo.refresh(plugin, p, lang);
+        tellPlaying(p, true);
         Member nm = m;
         broadcast(l -> Texts.msg(l, "game.late", Placeholder.unparsed("player", nm.name)));
         applyVisibilityAll();
     }
 
-    /** Freiwillig gehen (/verlassen) oder Verbindung weg: zählt als gespielt. */
+    /** Freiwillig gehen (/verlassen) oder Verbindung weg ohne Rückkehr: zählt als gespielt. */
     public void leave(Player p) {
+        tellPlaying(p, false);
         Member m = members.remove(p.getUniqueId());
         spectators.remove(p.getUniqueId());
         timeBar.hide(p);
@@ -376,6 +399,183 @@ public final class Game {
             report(m, false);
             plugin.store().unpin(p.getUniqueId(), p.isOnline());
             broadcast(l -> Texts.msg(l, "game.left", Placeholder.unparsed("player", m.name)));
+        }
+    }
+
+    /**
+     * Verbindung weg. Wer mitspielt, behält seinen Platz {@code rueckkehr-sekunden} lang – Rolle, Gestalt, Versteck,
+     * Punkte – und macht nach dem Wiederkommen genau dort weiter ({@link #rejoin}); so lange bietet die Lobby „Zurück ins
+     * Spiel“ an. Gestalt und eingerasteter Block verschwinden so lange (niemand soll etwas suchen, das nicht gefunden
+     * werden kann). Ohne Rückkehr-Zeit oder nach der Runde wie bisher: {@link #leave}.
+     */
+    public void quit(Player p) {
+        UUID u = p.getUniqueId();
+        // Das Netzwerk vergisst „spielt gerade“, sobald jemand den Server verlässt.
+        told.remove(u);
+        Member m = members.get(u);
+        int seconds = settings.comebackSeconds();
+        if (m == null || !m.online || !Comeback.holds(seconds, phase != Phase.OVER, true, false)) {
+            leave(p);
+            return;
+        }
+        m.online = false;
+        timeBar.hide(p);
+        if (m.disguise != null) {
+            m.awayShape = m.disguise.shape();
+            m.awayCell = m.disguise.solid() ? m.disguise.cell() : null;
+            m.awayFeetY = m.disguise.solid() ? m.disguise.center().getY() : p.getLocation().getY();
+            m.disguise.remove();
+            m.disguise = null;
+        }
+        comeback.away(u, tick, seconds);
+        plugin.net().holdSlot(u, seconds);
+        broadcast(l -> Texts.msg(l, "game.away", Placeholder.unparsed("player", m.name),
+                Placeholder.unparsed("secs", String.valueOf(seconds))));
+        plugin.stateChanged();
+    }
+
+    /**
+     * Wiederkommen: Wartet die Runde noch auf diese Person, geht es genau dort weiter, wo sie war (true). Zu spät: sie
+     * hat die Runde verlassen wie bisher (false – sie kommt in die Gendarmerie).
+     */
+    public boolean rejoin(Player p) {
+        UUID u = p.getUniqueId();
+        Member m = members.get(u);
+        if (m == null || !comeback.waitingFor(u)) {
+            return false;
+        }
+        if (!comeback.back(u, tick) || phase == Phase.OVER) {
+            tooLate(u);
+            return false;
+        }
+        comeBack(p, m);
+        return true;
+    }
+
+    /**
+     * Rechtzeitig zurück: Minecraft hat Ort, Sachen und Unsichtbarkeit gespeichert – Gestalt und Versteck kommen von
+     * hier zurück (der Block rastet wieder ein, wenn die Stelle noch frei ist). Gendarmen kommen in die Stube oder, wenn
+     * die Suche inzwischen begonnen hat, an den Ortseingang.
+     */
+    private void comeBack(Player p, Member m) {
+        UUID u = m.uuid;
+        m.online = true;
+        plugin.net().holdSlot(u, 0);
+        tellPlaying(p, true);
+        String lang = plugin.lang(p);
+        timeBar.show(p, lang);
+        Holo.refresh(plugin, p, lang);
+        if (m.role == Member.Role.HIDER) {
+            p.addPotionEffect(quiet(PotionEffectType.INVISIBILITY, PotionEffect.INFINITE_DURATION, 0));
+            Shape shape = m.awayShape != null && allowedShapes(p).contains(m.awayShape) ? m.awayShape : startShape(p);
+            m.disguise = Disguise.create(plugin, p, shape);
+            m.lastPos = p.getLocation();
+            m.stillSince = tick;
+            m.lockHint = false;
+            if (m.awayCell != null && lockProblem(p, m.awayCell) == null) {
+                m.disguise.solidify(m.awayCell, m.awayFeetY);
+                m.graceUntil = tick + GRACE;
+                Location c = m.disguise.center().clone();
+                c.setYaw(p.getLocation().getYaw());
+                c.setPitch(p.getLocation().getPitch());
+                p.teleport(c);
+                m.lastPos = p.getLocation();
+            }
+            Gear.hider(p, lang, phase == Phase.SEEK, m.changeUsed, settings.roundShop());
+            if (phase == Phase.SEEK) {
+                fairWhistle(m);
+            }
+        } else if (phase == Phase.HIDE) {
+            toBooth(p);
+        } else if (!m.released) {
+            reset(p, GameMode.ADVENTURE);
+            releaseSeeker(p, m);
+        } else {
+            Gear.seeker(p, lang, m.sniffUsed, settings.roundShop());
+        }
+        m.awayShape = null;
+        m.awayCell = null;
+        applyVisibilityAll();
+        Ui.title(p, Texts.text(lang, "game.back.title"), Texts.text(lang, "game.back.sub"), 2500);
+        Ui.sound(p, "minecraft:entity.player.levelup", 1.2f);
+        p.sendMessage(Texts.msg(lang, "game.back"));
+        for (Player o : audience()) {
+            if (!o.equals(p)) {
+                o.sendMessage(Texts.msg(plugin.lang(o), "game.back.all", Placeholder.unparsed("player", m.name)));
+            }
+        }
+        plugin.stateChanged();
+    }
+
+    /**
+     * Ist während der Abwesenheit ein Pflicht-Pfiff fällig geworden, pfeift er nicht sofort nach dem Wiederkommen,
+     * sondern erst nach der üblichen Vorwarnung.
+     */
+    private void fairWhistle(Member m) {
+        long total = (long) settings.seekSeconds() * SECOND;
+        long from = Whistle.mandatoryFrom(total, settings.whistleMandatoryPercent());
+        long interval = (long) settings.whistleInterval() * SECOND;
+        long due = Whistle.dueIn(seekElapsed, from, m.lastWhistle, interval);
+        m.warned = false;
+        if (due >= 0 && due < WARN_BEFORE + SECOND) {
+            m.lastWhistle = seekElapsed + WARN_BEFORE + SECOND - interval;
+        }
+    }
+
+    /**
+     * Wieder da, aber die Runde ist inzwischen vorbei (Nachspiel): nicht mehr mitzählen – die Abrechnung ist beim
+     * Rundenende schon gelaufen. So landet man normal in der Gendarmerie und das Aufräumen am Ende lässt einen in Ruhe.
+     */
+    public void forgetAbsent(Player p) {
+        Member m = members.get(p.getUniqueId());
+        if (m == null || m.online || comeback.waitingFor(m.uuid)) {
+            return;
+        }
+        members.remove(m.uuid);
+        plugin.store().unpin(m.uuid, true);
+    }
+
+    /** Nicht rechtzeitig zurück: hat die Runde verlassen wie bisher (zählt als gespielt, nicht gewonnen). */
+    private void tooLate(UUID u) {
+        plugin.net().holdSlot(u, 0);
+        Member m = members.remove(u);
+        if (m == null) {
+            return;
+        }
+        m.online = false;
+        m.awayShape = null;
+        m.awayCell = null;
+        report(m, false);
+        plugin.store().unpin(u, Bukkit.getPlayer(u) != null);
+        broadcast(l -> Texts.msg(l, "game.away.late", Placeholder.unparsed("player", m.name)));
+        plugin.stateChanged();
+    }
+
+    /** Jede Sekunde: wer zu lange weg ist, hat die Runde verlassen. */
+    private void expireAbsent() {
+        for (UUID u : comeback.expired(tick)) {
+            tooLate(u);
+        }
+    }
+
+    /** Runde vorbei oder abgebrochen: niemand muss mehr zurück („Zurück ins Spiel“ zurücknehmen), niemand spielt mehr. */
+    private void releaseAll() {
+        for (UUID u : comeback.clear()) {
+            plugin.net().holdSlot(u, 0);
+        }
+        for (UUID u : new ArrayList<>(told)) {
+            Player p = Bukkit.getPlayer(u);
+            if (p != null) {
+                tellPlaying(p, false);
+            }
+        }
+        told.clear();
+    }
+
+    /** Dem Netzwerk sagen, ob jemand gerade spielt (dann fragt „/lobby“ erst nach) – nur bei Änderungen. */
+    private void tellPlaying(Player p, boolean playing) {
+        if (playing ? told.add(p.getUniqueId()) : told.remove(p.getUniqueId())) {
+            plugin.net().playing(p, playing);
         }
     }
 
@@ -474,7 +674,10 @@ public final class Game {
     /** Jeden Tick. Liefert {@code false}, wenn die Runde vorbei und aufgeräumt ist. */
     public boolean tick() {
         tick++;
-        if (phase != Phase.OVER && members.values().stream().noneMatch(m -> m.online)) {
+        if (phase != Phase.OVER && tick % SECOND == 0 && comeback.count() > 0) {
+            expireAbsent();
+        }
+        if (phase != Phase.OVER && members.values().stream().noneMatch(m -> m.online) && comeback.count() == 0) {
             close();
             return false;
         }
@@ -809,7 +1012,7 @@ public final class Game {
 
     /** Wer als Letzter noch versteckt ist, bekommt einmal Extrapunkte (bei mindestens zwei Versteckten am Anfang). */
     private void lastHider() {
-        if (lastHiderPaid || startHiders < 2 || count(Member.Role.HIDER) != 1) {
+        if (lastHiderPaid || startHiders < 2 || count(Member.Role.HIDER) != 1 || countIn(Member.Role.HIDER) != 1) {
             return;
         }
         lastHiderPaid = true;
@@ -1089,6 +1292,8 @@ public final class Game {
         }
         undress(hp, h);
         h.role = Member.Role.SEEKER;
+        // schon auf der Karte – kommt er nach einem Verbindungsabbruch zurück, bleibt er dort
+        h.released = true;
         reset(hp, GameMode.ADVENTURE);
         Gear.seeker(hp, plugin.lang(hp), h.sniffUsed, settings.roundShop());
         String shapeId = shape == null ? "fass" : shape.id();
@@ -1327,7 +1532,9 @@ public final class Game {
         if (phase == Phase.OVER) {
             return;
         }
-        Outcome.Winner w = Outcome.decide(count(Member.Role.HIDER), count(Member.Role.SEEKER), timeUp);
+        // Auf wer gerade weg ist, wartet die Runde – bei Ablauf der Suchzeit zählt aber nur, wer noch versteckt da ist.
+        Outcome.Winner w = Outcome.decide(timeUp ? count(Member.Role.HIDER) : countIn(Member.Role.HIDER),
+                countIn(Member.Role.SEEKER), timeUp);
         if (w != Outcome.Winner.NONE) {
             gameOver(w);
         }
@@ -1351,6 +1558,7 @@ public final class Game {
     private void gameOver(Outcome.Winner w) {
         phase = Phase.OVER;
         winner = w;
+        releaseAll();
         fogs.clear();
         phaseTicks = settings.afterSeconds() * SECOND;
         for (Member m : members.values()) {
@@ -1495,6 +1703,7 @@ public final class Game {
 
     /** Aufräumen und alle zurück in die Gendarmerie. */
     public void close() {
+        releaseAll();
         if (phase != Phase.OVER) {
             phase = Phase.OVER;
             for (Member m : members.values()) {
@@ -1574,6 +1783,20 @@ public final class Game {
                         Placeholder.unparsed("n", String.valueOf(count(Member.Role.HIDER)))));
             }
         }
+    }
+
+    /**
+     * Verwaltung (zum Testen): Rundenpunkte dazugeben – nur wer gerade mitspielt und da ist. Liefert die neuen Punkte,
+     * −1 sonst.
+     */
+    public int givePoints(UUID uuid, int amount) {
+        Member m = members.get(uuid);
+        if (m == null || !m.online || phase == Phase.OVER) {
+            return -1;
+        }
+        m.points += amount;
+        plugin.boards().game(this);
+        return m.points;
     }
 
     /** Für die Leiste: Punkte einer Person (0, wenn sie nicht mitspielt). */

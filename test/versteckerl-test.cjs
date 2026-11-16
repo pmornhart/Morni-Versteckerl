@@ -28,6 +28,8 @@ const WALLET_FILE = () => path.join(SERVER, 'vk-laden-dora.txt');
 const DORF = 1000;
 const HEU = 3000;
 const FLOOR = 100;
+/** rueckkehr-sekunden im Test (test/run.sh). */
+const COMEBACK = 20;
 
 const results = [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -80,6 +82,8 @@ const calls = () =>
     .filter(Boolean)
     .map((l) => JSON.parse(l));
 const statsOf = (name) => calls().filter((c) => c.t === 'stats' && c.name === name);
+/** Netzwerk-Aufrufe einer Art für einen Namen (ab Stelle {from} in calls.log). */
+const callsOf = (t, name, from = 0) => calls().slice(from).filter((c) => c.t === t && c.name === name);
 
 async function waitFor(cond, ms = 5000, step = 100) {
   const start = Date.now();
@@ -155,11 +159,11 @@ async function status() {
     for (const part of line.split(' ')) {
       const [k, v] = part.split('=');
       if (/^[A-Z]/.test(k)) {
-        const [role, shape, solid, lives, points, finds, whistles, cell, online, spent] = v.split(':');
+        const [role, shape, solid, lives, points, finds, whistles, cell, online, spent, waiting] = v.split(':');
         s.members[k] = {
           role, shape, solid: solid === '1', lives: Number(lives), points: Number(points), finds: Number(finds),
           whistles: Number(whistles), cell: cell === '-' ? null : cell.split(',').map(Number), online: online === 'on',
-          spent: Number(spent ?? 0),
+          spent: Number(spent ?? 0), waiting: Number(waiting ?? 0),
         };
       } else {
         s[k] = /^-?\d+$/.test(v) ? Number(v) : v;
@@ -267,7 +271,7 @@ async function main() {
   check('Tafeln der Gendarmerie stehen (4 Tafeln + Schild des Krämers, je 2 Sprachen)', /: 10\b/.test(holos), holos.trim());
   const wastl = String(await cmd(inWorld(`execute positioned ${KRAEMER.x} ${KRAEMER.y} ${KRAEMER.z} if entity @e[type=villager,tag=versteckerl_kraemer,distance=..1.5]`)));
   check('Krämer Wastl steht am Kramerstand', /: 1\b/.test(wastl), wastl.trim());
-  const anna = await join('Anna');
+  let anna = await join('Anna');
   const bert = await join('Bert');
   check('Ankunft in der Gendarmerie', inHall(anna), JSON.stringify(anna.entity.position));
   check('Schnellleiste: Kompass, Farbstoff, Papier, Bett',
@@ -340,7 +344,7 @@ async function main() {
   await tp(bert, 'Bert', HALL.x, HALL.y, HALL.z, 180, 0);
 
   // ------------------------------------------------------------------ Runde 1: Dorfplatz
-  const carl = await join('Carl');
+  let carl = await join('Carl');
   const dora = await join('Dora');
   await cmd('versteckerladmin sucher Dora');
   check('Ab 4 Leuten läuft der Countdown von selbst', await waitFor(() => anna.bars.some((b) => /Nächste Runde in \d+ s · Karte: Dorfplatz/.test(b)), 4000),
@@ -350,6 +354,8 @@ async function main() {
   const started = await waitFor(() => onMap(anna, DORF) && onMap(dora, DORF), 15000);
   check('Runde startet: alle auf dem Dorfplatz', started, JSON.stringify(anna.entity.position));
   check('Netzwerk: Zustand „running“', await waitFor(() => calls().some((c) => c.t === 'state' && c.state === 'running'), 3000));
+  check('Netzwerk: alle vier „spielen gerade“ (Nachfrage vor der Lobby)', ['Anna', 'Bert', 'Carl', 'Dora'].every((n) =>
+    callsOf('playing', n).some((c) => c.playing === true)), calls().filter((c) => c.t === 'playing').map((c) => `${c.name}:${c.playing}`).join(' '));
   let s = (await status()).dorfplatz;
   check('Rollen: Dora sucht, drei verstecken sich', s?.phase === 'HIDE' && s.members.Dora?.role === 'SEEKER' &&
     ['Anna', 'Bert', 'Carl'].every((n) => s.members[n]?.role === 'HIDER'), JSON.stringify(s?.members));
@@ -407,6 +413,38 @@ async function main() {
   check('Carl hüpft herum und rastet nicht ein', !s.members.Carl.solid);
   check('Andere sehen die Anzeige eingerasteter Gestalten nicht (nur den echten Block)', !Object.values(carl.entities).some((e) =>
     e.name === 'block_display' && e.position.distanceTo(new Vec3(B.x + 0.5, B.y, B.z + 0.5)) < 0.8));
+
+  // ------------------------------------------------------------------ Zurück ins Spiel (rechtzeitig): Anna
+  await cmd('versteckerladmin zeit 45');
+  s = (await status()).dorfplatz;
+  const annaBefore = { ...s.members.Anna, cell: String(s.members.Anna.cell) };
+  let mark = calls().length;
+  clear(bert, carl, dora);
+  anna.quit();
+  check(`Anna verliert die Verbindung: Platz bleibt ${COMEBACK} s frei (Netzwerk: holdSlot ${COMEBACK})`,
+    await waitFor(() => callsOf('hold-slot', 'Anna', mark).some((c) => c.seconds === COMEBACK), 5000), JSON.stringify(calls().slice(mark)));
+  check('Die anderen erfahren es (de/en)', await waitFor(() => sees(carl, new RegExp(`Anna hat die Verbindung verloren – der Platz bleibt ${COMEBACK} Sekunden frei`)) &&
+    sees(bert, /Anna lost the connection/), 3000), carl.chats.slice(-1)[0]);
+  s = (await status()).dorfplatz;
+  check('Die Runde wartet auf Anna (noch eingeplant, weg) – ihr Fass ist so lange fort', s.members.Anna?.online === false &&
+    s.members.Anna.role === 'HIDER' && s.members.Anna.waiting > 0 && (await blockIs(A.x, A.y, A.z, 'air')), JSON.stringify(s.members.Anna));
+  await sleep(4000);
+  anna = await join('Anna');
+  check('Anna ist rechtzeitig zurück: „Willkommen zurück!“', await waitFor(() => sawTitle(anna, /Willkommen zurück/) &&
+    sees(anna, /Willkommen zurück! Du bist wieder in der Runde/), 4000), `${anna.titles.join(' | ')} / ${anna.chats.slice(-2).join(' | ')}`);
+  s = (await status()).dorfplatz;
+  check('Gleiche Rolle, Gestalt, Leben und Punkte – und wieder als echtes Fass an ihrem Platz eingerastet',
+    s.members.Anna.online && s.members.Anna.role === 'HIDER' && s.members.Anna.shape === annaBefore.shape &&
+      s.members.Anna.points === annaBefore.points && s.members.Anna.lives === annaBefore.lives && s.members.Anna.solid &&
+      String(s.members.Anna.cell) === annaBefore.cell && (await blockIs(A.x, A.y, A.z, 'barrel')), JSON.stringify(s.members.Anna));
+  check('Anna ist wieder unsichtbar, an derselben Stelle, mit ihren Knöpfen', hasEffect(anna, INVISIBILITY) &&
+    near(anna.entity.position, { x: A.x + 0.5, y: A.y, z: A.z + 0.5 }, 1) && slot(anna, 0)?.name === 'armor_stand',
+  `${JSON.stringify(anna.entity.position)} ${slot(anna, 0)?.name}`);
+  check('Netzwerk: Platz wieder frei (holdSlot 0) und Anna „spielt gerade“', callsOf('hold-slot', 'Anna', mark).some((c) => c.seconds === 0) &&
+    callsOf('playing', 'Anna', mark).some((c) => c.playing === true), JSON.stringify(calls().slice(mark)));
+  check('Die anderen sehen „Anna ist zurück in der Runde“', await waitFor(() => sees(carl, /Anna ist zurück in der Runde/), 3000));
+  check('Die anderen sehen Anna (die Spielerin) weiterhin nicht', await waitFor(() =>
+    !Object.values(dora.entities).some((e) => e.username === 'Anna') && !Object.values(carl.entities).some((e) => e.username === 'Anna'), 3000));
 
   // ------------------------------------------------------------------ Suchzeit
   clear(anna, bert, carl, dora);
@@ -556,11 +594,31 @@ async function main() {
   s = (await status()).dorfplatz;
   check('Carl ist gefunden', s.members.Carl.role === 'SEEKER' && s.members.Dora.finds === 2, JSON.stringify(s.members.Carl));
 
+  // Zu spät: Carl (jetzt Gendarm) verliert die Verbindung und kommt nicht rechtzeitig zurück – dann wie bisher.
+  mark = calls().length;
+  carl.quit();
+  check(`Carl (Gendarm) geht: Platz bleibt erst ${COMEBACK} s frei`, await waitFor(() =>
+    callsOf('hold-slot', 'Carl', mark).some((c) => c.seconds === COMEBACK), 5000), JSON.stringify(calls().slice(mark)));
+  s = (await status()).dorfplatz;
+  check('Die Runde wartet auf Carl (noch eingeplant, weg)', s.members.Carl?.online === false && s.members.Carl.role === 'SEEKER',
+    JSON.stringify(s.members.Carl));
+
   // Pflicht-Pfiff: Anna pfeift zu lange nicht → pfeift von selbst
   check('Pflicht zum Pfeifen wird angesagt', await waitFor(() => sees(anna, /muss jeder Versteckte mindestens alle/), 30000),
     anna.chats.slice(-2).join(' | '));
   check('Pflicht-Pfiff kommt von selbst (ohne Punkte)', await waitFor(() => sees(anna, /Pflicht-Pfiff/), 30000),
     anna.chats.slice(-2).join(' | '));
+
+  check(`Nach ${COMEBACK} s: Carl ist nicht rechtzeitig zurück und hat die Runde verlassen`, await waitFor(() =>
+    sees(anna, /Carl ist nicht rechtzeitig zurückgekommen und hat die Runde verlassen/), (COMEBACK + 15) * 1000, 500),
+  anna.chats.slice(-2).join(' | '));
+  check('Netzwerk: Angebot zurückgenommen (holdSlot 0), Runde für Carl gezählt (kein Sieg)',
+    callsOf('hold-slot', 'Carl', mark).some((c) => c.seconds === 0) && statsOf('Carl').at(-1)?.add.games === 1 &&
+      statsOf('Carl').at(-1)?.add.wins_seeker === 0 && !(await status()).dorfplatz.members.Carl, JSON.stringify(statsOf('Carl').at(-1)));
+  carl = await join('Carl');
+  check('Carl kommt zu spät: wie bisher ein neuer Anfang (als Nachzügler der Party hilft er als Gendarm)', await waitFor(async () =>
+    sees(carl, /Deine Party spielt gerade/) && (await status()).dorfplatz?.members.Carl?.role === 'SEEKER', 6000),
+  carl.chats.slice(-2).join(' | '));
 
   // Ende: Zeit um, Anna ist noch versteckt → die Versteckten gewinnen
   clear(anna, bert, carl, dora);
@@ -571,6 +629,9 @@ async function main() {
   check('Rangliste im Chat', await waitFor(() => sees(dora, /1\. .* Punkte/) && sees(anna, /Deine Punkte:/), 3000),
     `${dora.chats.slice(-3).join(' | ')} / ${anna.chats.slice(-3).join(' | ')}`);
   check('Annas Gestalt leuchtet zum Aufdecken', await countDisplays(DORF, 0) === 1);
+  check('Netzwerk: nach der Runde spielt niemand mehr', await waitFor(() => ['Anna', 'Bert', 'Carl', 'Dora'].every((n) =>
+    callsOf('playing', n).at(-1)?.playing === false), 3000),
+  ['Anna', 'Bert', 'Carl', 'Dora'].map((n) => `${n}:${callsOf('playing', n).at(-1)?.playing}`).join(' '));
   await sleep(1000);
   let st = statsOf('Anna').at(-1);
   check('Netzwerk-Statistik Anna: Spiel, Sieg als Versteckte, überlebt, Pfiffe, Punkte',
@@ -736,6 +797,14 @@ async function main() {
   check('Rundenladen: zu wenig Punkte für die Nebelwolke (englisch)', await waitFor(() => sees(bert, /You need 3 more points/), 2000) &&
     (await status()).heustadel.members.Bert.spent === 0, bert.chats.slice(-1)[0]);
   await closeWindow(bert);
+  // Verwaltung zum Testen (Owner/Admin): Rundenpunkte geben – Bert bekommt 5
+  bert.chats.length = 0;
+  const givePoints = String((await cmd('versteckerladmin punkte Bert 5'))[0]).replace(/§./g, '');
+  check('Verwaltung: /versteckerladmin punkte gibt Rundenpunkte (Bestätigung, Nachricht auf Englisch)',
+    /Bert hat 5 Rundenpunkte bekommen – jetzt 5/.test(givePoints) && await waitFor(() => sees(bert, /You got 5 round points – now 5/), 2000) &&
+      (await status()).heustadel.members.Bert.points === 5, `${givePoints} / ${bert.chats.slice(-1)[0]}`);
+  const noRound = String((await cmd('versteckerladmin punkte Emil 5'))[0]).replace(/§./g, '');
+  check('… nur wer gerade eine Runde spielt (Emil schaut nur zu)', /Emil spielt gerade keine Runde/.test(noRound), noRound);
   // Nebelwolke: Anna steht nah dran und sieht kurz nichts
   await tp(anna, 'Anna', Q.x + 0.5, FLOOR + 1, Q.z - 2.5, 0, 20);
   win = await openWithItem(dora, 3);
@@ -772,6 +841,20 @@ async function main() {
   check('Emil ist nach dem Zuschauen auch zurück', await waitFor(() => inHall(emil), 3000));
   check('Heustadel aufgeräumt (Blöcke weg)', (await blockIs(P.x, P.y, P.z, 'air')) && (await blockIs(Q.x, Q.y, Q.z, 'air')) &&
     (await countDisplays(HEU, 0)) === 0);
+  // Verwaltung zum Testen (Owner/Admin): Guthaben geben – an Bert und an sich selbst (ohne Namen)
+  const bertW0 = (await wallet('Bert')).guthaben;
+  bert.chats.length = 0;
+  const giveMoney = String((await cmd('versteckerladmin geld Bert 250'))[0]).replace(/§./g, '');
+  check('Verwaltung: /versteckerladmin geld gibt Guthaben (Bestätigung, Nachricht auf Englisch)',
+    /Bert hat 250 ✦ Guthaben bekommen/.test(giveMoney) && await waitFor(() => sees(bert, /You got 250 ✦ credit/), 2000) &&
+      (await wallet('Bert')).guthaben === bertW0 + 250, `${giveMoney} / ${bert.chats.slice(-1)[0]}`);
+  await cmd('op Anna');
+  const annaW0 = (await wallet('Anna')).guthaben;
+  anna.chats.length = 0;
+  anna.chat('/versteckerladmin geld 100');
+  check('… und sich selbst (/versteckerladmin geld 100)', await waitFor(async () => sees(anna, /Du hast 100 ✦ Guthaben bekommen/) &&
+    (await wallet('Anna')).guthaben === annaW0 + 100, 3000), anna.chats.slice(-1)[0]);
+  await cmd('deop Anna');
   const statsOut = String(await cmd('stats Anna')).replace(/§./g, '');
   check('/stats zeigt Runden und Funde', /Runden: 2/.test(statsOut) && /Gefunden: 2/.test(statsOut), statsOut.replace(/\n/g, ' '));
   const topOut = String(await cmd('top')).replace(/§./g, '');
@@ -781,7 +864,8 @@ async function main() {
 
   // ------------------------------------------------------------------ Lobby
   await useItem(bert, 8);
-  check('Bett: zurück zur Lobby (Netzwerk)', await waitFor(() => calls().some((c) => c.t === 'to-lobby' && c.name === 'Bert'), 3000));
+  check('Bett: zurück zur Lobby – fragt das Netzwerk (in der Gendarmerie ohne Nachfrage)', await waitFor(() =>
+    calls().some((c) => c.t === 'ask-lobby' && c.name === 'Bert' && c.asked === false), 3000), JSON.stringify(calls().slice(-2)));
 
   for (const b of [anna, bert, carl2, dora, emil]) {
     try {

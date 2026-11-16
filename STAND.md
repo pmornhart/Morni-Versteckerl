@@ -34,6 +34,24 @@ Wastl in der Gendarmerie Gestalten, Pfiff-Klänge, Effekte und Titel. Repo `pmor
 
 ## Stand (16.11.2026)
 
+- **Version 0.2.1 – Zurück ins Spiel** (Philip: „mitten im Spiel nochmal fragen, ob man wirklich zur Lobby will; nach
+  einem Absturz zurück ins Spiel“; Branch `claude/zurueck-ins-spiel`, wartet auf Philips Go): Netzwerk-Schnittstelle 2
+  (byte-gleiche Kopie; `askToLobby`, `playing`, `holdSlot`; älteres Netzwerk-Plugin → `LinkageError` einmal im Log,
+  sonst wie bisher). `playing` ab Rundenstart (auch Nachzügler) bis Rundenende/Verlassen, das Bett der Gendarmerie
+  ruft `askToLobby`. Verbindung weg in der Runde → Platz `rueckkehr-sekunden` frei (neu oben in der config.yml,
+  Vorgabe 90, 0 = aus; Regeln in `rules/Comeback`), `holdSlot`; Gestalt und eingerasteter Block verschwinden so lange,
+  die Runde wartet (zählt beim Sieg mit, nur bei Ablauf der Suchzeit nicht als versteckt). Rechtzeitig zurück: gleiche
+  Rolle, Gestalt, Versteck (Block rastet wieder ein), Punkte, Leben; Gendarmen in die Stube bzw. an den Ortseingang;
+  fälliger Pflicht-Pfiff erst nach Vorwarnung. Zu spät: wie bisher verlassen (Statistik, Gendarmerie). Wer erst im
+  Nachspiel zurückkommt, wird aus der Runde genommen (`forgetAbsent`, sonst räumte das Rundenende seine Gendarmerie-
+  Leiste ab); Gefundene gelten als schon auf der Karte (`released`). Neu für Owner/Admins: `/versteckerladmin geld
+  [spieler] <betrag>` (Guthaben) und `punkte [spieler] <betrag>` (Rundenpunkte), ohne Spieler für einen selbst, de/en.
+  Test-Netzwerk schreibt `playing`, `ask-lobby`, `hold-slot`. Geprüft: 44 Unit-Tests (neu `ComebackTest`, Settings),
+  Paper 26.1 übersetzt, echt (`test/run.sh`, `rueckkehr-sekunden: 20`) **171/171** + nach Neustart **5/5**, Log ohne
+  Fehler – neu: alle spielen, Anna geht und kommt rechtzeitig zurück (gleiches Fass am gleichen Platz eingerastet,
+  unsichtbar, Knöpfe, holdSlot 20 → 0), Carl (Gendarm) kommt zu spät (holdSlot 0, Runde gezählt, als Nachzügler
+  wieder Gendarm), nach der Runde spielt niemand, `geld`/`punkte` an andere und sich selbst, Bett → `askToLobby`.
+
 - **Version 0.2.0 – Punkte sammeln und einkaufen** (Philips Wunsch, Vorbild nur die Mechanik großer
   Hide-and-Seek-Server; Branch `claude/erster-stand`, wartet auf Philips Go): Punkte der Runde (mehr Anlässe: erster
   Fund, Letzter, mutiger und lauter Pfiff) → Abrechnung am Rundenende → Guthaben (dazu Siegesserie, Tagesbonus);
@@ -92,7 +110,9 @@ Wastl in der Gendarmerie Gestalten, Pfiff-Klänge, Effekte und Titel. Repo `pmor
 
 ## Offen
 
-- Philip: Bilder ansehen, ausprobieren; Go für `main` (dann erstes Release v0.2.0).
+- Philip: Go für `main` mit 0.2.1 (Zurück ins Spiel, Geld zum Testen).
+- Netzwerk-Repo: Einstellungs-Katalog um `rueckkehr-sekunden` ergänzen (0–600, Vorgabe 90).
+- Nicht echt geprüft: Rückkehr über das echte Netzwerk (Lobby-Angebot „Zurück ins Spiel“), Bedrock.
 - Einstellungs-Katalog im Netzwerk-Repo: neue Schlüssel `punkte.*`, `rundenladen.*`, `laden.*` (Liste im Bericht vom
   16.11.); Webseite/Statistik: neue Werte `earned`, `bonus`, `helps`, `best_streak`, `unlocks`, `spent`.
 - Nicht echt geprüft: Gleichgewicht der Preise mit echten Spielern, Bedrock (Truhen-Menüs, Partikel), echter Hub.

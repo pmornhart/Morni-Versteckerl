@@ -262,10 +262,12 @@ final class Commands implements TabExecutor {
                 s.sendMessage(Component.text("Einstellungen neu geladen."));
             }
             case "guthaben" -> balance(s, args);
+            case "geld" -> give(s, args, false);
+            case "punkte" -> give(s, args, true);
             case "laden" -> wallet(s, args);
             default -> s.sendMessage(Component.text("/versteckerladmin info|status|start [karte]|zeit <sek> [karte]"
-                    + "|sucher <namen…|weg>|ende [karte]|guthaben <spieler> <zahl|+zahl|-zahl>|laden <spieler>"
-                    + "|neubauen|neuladen"));
+                    + "|sucher <namen…|weg>|ende [karte]|guthaben <spieler> <zahl|+zahl|-zahl>|geld [spieler] <betrag>"
+                    + "|punkte [spieler] <betrag>|laden <spieler>|neubauen|neuladen"));
         }
         return true;
     }
@@ -294,6 +296,70 @@ final class Commands implements TabExecutor {
         plugin.store().save(d);
         plugin.boards().hall(p);
         s.sendMessage(Component.text("Guthaben " + p.getName() + ": " + now));
+    }
+
+    /** Höchstens so viel auf einmal (Tippfehler sollen kein Vermögen machen). */
+    private static final int MAX_GIFT = 1_000_000;
+
+    /**
+     * Zum Testen (Owner und Admins): {@code geld [spieler] <betrag>} gibt Guthaben für den Kramerladen,
+     * {@code punkte [spieler] <betrag>} Rundenpunkte in der laufenden Runde (für die Kramerkiste). Ohne Spieler bekommt
+     * man es selbst. Beide erfahren es freundlich in ihrer Sprache.
+     */
+    private void give(CommandSender s, String[] args, boolean roundPoints) {
+        String lang = s instanceof Player sp ? plugin.lang(sp) : "de";
+        String usage = roundPoints ? "admin.points.usage" : "admin.money.usage";
+        Player target;
+        String amountArg;
+        if (args.length == 2 && s instanceof Player self) {
+            target = self;
+            amountArg = args[1];
+        } else if (args.length >= 3) {
+            target = Bukkit.getPlayerExact(args[1]);
+            amountArg = args[2];
+            if (target == null) {
+                s.sendMessage(Texts.msg(lang, "unknown-player", Placeholder.unparsed("name", args[1])));
+                return;
+            }
+        } else {
+            s.sendMessage(Texts.msg(lang, usage));
+            return;
+        }
+        int amount;
+        try {
+            amount = Integer.parseInt(amountArg.startsWith("+") ? amountArg.substring(1) : amountArg);
+        } catch (NumberFormatException e) {
+            amount = 0;
+        }
+        if (amount < 1 || amount > MAX_GIFT) {
+            s.sendMessage(Texts.msg(lang, usage));
+            return;
+        }
+        long now;
+        if (roundPoints) {
+            Game g = plugin.games().playing(target.getUniqueId());
+            now = g == null ? -1 : g.givePoints(target.getUniqueId(), amount);
+            if (now < 0) {
+                s.sendMessage(Texts.msg(lang, "admin.points.none", Placeholder.unparsed("name", target.getName())));
+                return;
+            }
+        } else {
+            PlayerData d = plugin.data(target);
+            now = d.adjust(amount);
+            plugin.store().save(d);
+            if (plugin.hall().inHall(target.getUniqueId())) {
+                plugin.boards().hall(target);
+            }
+        }
+        String n = String.valueOf(amount);
+        String total = String.valueOf(now);
+        if (!target.equals(s)) {
+            s.sendMessage(Texts.msg(lang, roundPoints ? "admin.points.done" : "admin.money.done",
+                    Placeholder.unparsed("name", target.getName()), Placeholder.unparsed("n", n),
+                    Placeholder.unparsed("total", total)));
+        }
+        target.sendMessage(Texts.msg(plugin.lang(target), roundPoints ? "admin.points.got" : "admin.money.got",
+                Placeholder.unparsed("n", n), Placeholder.unparsed("total", total)));
     }
 
     /** Kramerladen-Werte einer Person (Verwaltung, Tests). */
@@ -340,10 +406,10 @@ final class Commands implements TabExecutor {
         String name = command.getName().toLowerCase(Locale.ROOT);
         List<String> options = new ArrayList<>();
         if (name.equals("versteckerladmin") && args.length == 1) {
-            options.addAll(List.of("info", "status", "start", "zeit", "sucher", "ende", "guthaben", "laden", "neubauen",
-                    "neuladen"));
-        } else if (name.equals("versteckerladmin") && args.length == 2
-                && (args[0].equalsIgnoreCase("guthaben") || args[0].equalsIgnoreCase("laden"))) {
+            options.addAll(List.of("info", "status", "start", "zeit", "sucher", "ende", "guthaben", "geld", "punkte", "laden",
+                    "neubauen", "neuladen"));
+        } else if (name.equals("versteckerladmin") && args.length == 2 && List.of("guthaben", "geld", "punkte", "laden")
+                .contains(args[0].toLowerCase(Locale.ROOT))) {
             Bukkit.getOnlinePlayers().forEach(p -> options.add(p.getName()));
         } else if ((name.equals("karte") || name.equals("zuschauen")) && args.length == 1
                 || name.equals("versteckerladmin") && args.length == 2 && args[0].equalsIgnoreCase("start")) {

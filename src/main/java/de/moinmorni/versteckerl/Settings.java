@@ -25,6 +25,7 @@ public record Settings(
         int hideSeconds,
         int seekSeconds,
         int afterSeconds,
+        int comebackSeconds,
         int lockSeconds,
         int hitsToFind,
         double wrongDamage,
@@ -43,6 +44,10 @@ public record Settings(
         Set<String> off) {
 
     private static final int MAX_POINTS = 1000;
+    /** Höchstens so lange wartet eine Runde auf jemanden, der die Verbindung verloren hat. */
+    static final int MAX_COMEBACK_SECONDS = 600;
+    /** Vorgabe für {@code rueckkehr-sekunden}. */
+    static final int COMEBACK_SECONDS = 90;
     private static final int MAX_PRICE = 100_000;
 
     public static Settings load(FileConfiguration c) {
@@ -55,6 +60,7 @@ public record Settings(
                 clamp(c.getInt("runde.versteck-sekunden", 40), 5, 300),
                 clamp(c.getInt("runde.such-sekunden", 300), 20, 1800),
                 clamp(c.getInt("runde.nachspiel-sekunden", 10), 1, 60),
+                clamp(c.getInt("rueckkehr-sekunden", COMEBACK_SECONDS), 0, MAX_COMEBACK_SECONDS),
                 clamp(c.getInt("runde.einrasten-sekunden", 3), 1, 20),
                 clamp(c.getInt("runde.treffer-bis-gefunden", 3), 1, 10),
                 Math.max(0, Math.min(20, c.getDouble("runde.falscher-treffer-schaden", 2))),

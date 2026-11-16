@@ -71,9 +71,11 @@ enforce-whitelist=false
 motd=Morni Versteckerl Test
 allow-flight=true
 EOF
-# Testwerte: kurze Countdowns und Zeiten, zwei Treffer bis gefunden, ein falscher Treffer kostet zwei Herzen.
+# Testwerte: kurze Countdowns und Zeiten, zwei Treffer bis gefunden, ein falscher Treffer kostet zwei Herzen,
+# Zurück ins Spiel nach 20 Sekunden (der Test kommt einmal rechtzeitig und einmal zu spät zurück).
 cat > "$SERVER/plugins/MorniVersteckerl/config.yml" <<'EOC'
 welt: versteckerl
+rueckkehr-sekunden: 20
 gendarmerie:
   countdown-sekunden: 6
   mindestens-spieler: 4

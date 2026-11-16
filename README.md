@@ -111,16 +111,26 @@ aus dem Kramerladen mindestens 6 genau gleich aussehende). Alles entsteht beim e
 | `/verlassen` | Runde oder Zuschauen verlassen – auch `/leave` |
 | `/laden` | in der Gendarmerie der Kramerladen, in der Runde die Kramerkiste (Hilfen) – auch `/shop`, `/kramerladen`, `/hilfen` |
 | `/stats [spieler]` · `/top` | Statistik und Steckbriefe (Bestenlisten) |
-| `/versteckerladmin info\|status\|start [karte]\|zeit <sek> [karte]\|sucher <namen…\|weg>\|ende [karte]\|guthaben <spieler> <zahl\|+zahl\|-zahl>\|laden <spieler>\|neubauen\|neuladen` | Verwaltung und Tests (`moinmorni.versteckerl.admin`, auch `/vkadmin`); `guthaben` setzt oder ändert das Guthaben (nie unter 0), `laden` zeigt Guthaben, Freigeschaltetes und Ausgerüstetes |
+| `/versteckerladmin info\|status\|start [karte]\|zeit <sek> [karte]\|sucher <namen…\|weg>\|ende [karte]\|guthaben <spieler> <zahl\|+zahl\|-zahl>\|geld [spieler] <betrag>\|punkte [spieler] <betrag>\|laden <spieler>\|neubauen\|neuladen` | Verwaltung und Tests (`moinmorni.versteckerl.admin`, auch `/vkadmin`); `guthaben` setzt oder ändert das Guthaben (nie unter 0), `geld` gibt Guthaben für den Kramerladen und `punkte` Rundenpunkte in der laufenden Runde (ohne Spieler: einem selbst – so geben sich Owner und Admins zum Testen etwas), `laden` zeigt Guthaben, Freigeschaltetes und Ausgerüstetes |
 
 Einstellungen stehen in der `config.yml` (Countdown, Zeiten, Anteil der Gendarmen, Treffer bis gefunden, Schaden für
 falsche Treffer, Pfiff-Pflicht, Hilfen, Punkte, Rundenladen, Preise und an/aus je Stück im Kramerladen …).
+
+**Zurück ins Spiel:** Verliert jemand mitten in einer Runde die Verbindung (zum Beispiel, weil das Spiel abstürzt),
+bleibt sein Platz `rueckkehr-sekunden` lang frei (ganz oben in der `config.yml`, Vorgabe 90, 0 = aus). Kommt er
+rechtzeitig wieder – direkt oder über „Zurück ins Spiel“ in der Lobby –, geht es genau dort weiter: gleiche Rolle,
+gleiche Gestalt, gleiches Versteck (der Block rastet wieder ein), gleiche Punkte. Solange ist seine Gestalt
+verschwunden (niemand sucht etwas, das nicht gefunden werden kann), die Runde wartet auf ihn; wer bei Ablauf der
+Suchzeit noch weg ist, zählt nicht als versteckt. Zu spät: Er hat die Runde verlassen wie bisher.
 
 ## Im Netzwerk
 
 Das Netzwerk-Plugin („MoinMorni“) stellt die Schnittstelle `de.moinmorni.api.MoinMorni` bereit; Versteckerl nutzt
 sie, wenn sie da ist (`softdepend`): Sprache der Spieler, Party (zusammen in eine Runde; wer später kommt, hilft in
 der laufenden Runde seiner Party als Gendarm mit), Statistik, Zustand für Lobby-Figur und Webseite, zurück zur Lobby.
+Ab Schnittstelle 2 meldet Versteckerl, wer gerade eine Runde spielt (dann fragt „/lobby“ erst nach), das Bett in der
+Gendarmerie fragt über das Netzwerk, und ein freigehaltener Platz erscheint in der Lobby als „Zurück ins Spiel“; mit
+einem älteren Netzwerk-Plugin läuft alles wie bisher.
 Ohne Netzwerk: Sprache aus dem Spiel (englischer Client → Englisch), Statistik nur lokal, „zur Lobby“ trennt die
 Verbindung mit einem Hinweis.
 
