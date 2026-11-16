@@ -17,10 +17,10 @@
 - Keine fremden Marken, Figuren, Namen, Texte oder Grafiken (keine Mojang-, Nintendo-, Hypixel- oder Inhalte anderer
   Server): nur die Spielidee „Verstecken mit Verwandlung“, eigene Namen (Dorfgendarmen, Pfiff, Spürnase …), eigene
   Karten, eigene Bauten.
-- Die Netzwerk-Schnittstelle `src/api/java/de/moinmorni/api/MoinMorni.java` ist eine Kopie aus `pmornhart/moinmorni.net`
-  (`plugins/moinmorni-network/src/main/java/de/moinmorni/api/MoinMorni.java`) und muss **genau gleich** bleiben. Sie wird
+- Die Netzwerk-Schnittstelle `src/api/java/net/morni/api/MorniNet.java` ist eine Kopie aus `pmornhart/morni.net`
+  (`plugins/morninet-network/src/main/java/net/morni/api/MorniNet.java`) und muss **genau gleich** bleiben. Sie wird
   nur mitübersetzt und kommt **nicht** in die Jar. Nur `net/Connected` darf sie benutzen.
-- Versteckerl muss auch ohne Netzwerk laufen (`softdepend: [MoinMorni]`; Sprache dann aus dem Client).
+- Versteckerl muss auch ohne Netzwerk laufen (`softdepend: [MorniNet]`; Sprache dann aus dem Client).
 - Paper 26.x, Java 25. Der Code muss auch gegen Paper 26.1 übersetzen (`mvn -Ppaper-26.1 compile`, läuft in der CI).
   Blocknamen von 26.x benutzen (z. B. `iron_chain`, nicht `chain`; `short_grass`, nicht `grass`) – `MapPlanTest` prüft das.
 - Regeln (Rollen, Punkte, Pfiff, Sieg, Abstimmung, Gruppen, Treffer-Rechnung) gehören in `rules/`, Daten in `data/` –

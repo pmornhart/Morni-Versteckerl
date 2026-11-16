@@ -69,7 +69,7 @@ const inWorld = (c) => `execute in minecraft:versteckerl run ${c}`;
 const playerFile = (name) => path.join(SERVER, 'plugins/MorniVersteckerl/spieler', `${offlineUuid(name)}.yml`);
 const readFile = (file) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '');
 const calls = () =>
-  readFile(path.join(SERVER, 'plugins/MoinMorni/calls.log'))
+  readFile(path.join(SERVER, 'plugins/MorniNet/calls.log'))
     .split('\n')
     .filter(Boolean)
     .map((l) => JSON.parse(l));
@@ -442,8 +442,10 @@ async function main() {
     [anna, bert, carl, dora].map((b) => JSON.stringify(b.entity.position)).join(' '));
   check('Aufgeräumt: keine Gestalten mehr, Annas Platz ist wieder leer', (await countDisplays(DORF, 0)) === 0 &&
     (await blockIs(A.x, A.y, A.z, 'air')) && (await blockIs(B.x, B.y, B.z, 'air')));
-  check('Alle wieder sichtbar und ohne Unsichtbarkeit', !hasEffect(anna, INVISIBILITY) &&
-    Object.values(dora.entities).some((e) => e.username === 'Anna'));
+  // Unter Last kommt das Paket, das Anna für Dora wieder zeigt, etwas nach dem Teleport an – darum kurz warten.
+  check('Alle wieder sichtbar und ohne Unsichtbarkeit', await waitFor(() => !hasEffect(anna, INVISIBILITY) &&
+    Object.values(dora.entities).some((e) => e.username === 'Anna'), 4000),
+  `unsichtbar=${hasEffect(anna, INVISIBILITY)} dora-sieht-anna=${Object.values(dora.entities).some((e) => e.username === 'Anna')}`);
   check('Spielerdatei mit Sieg', /siege-versteckt: 1/.test(readFile(playerFile('Anna'))) &&
     /gefunden: 2/.test(readFile(playerFile('Dora'))), readFile(playerFile('Anna')).replace(/\n/g, ' '));
   check('Steckbriefe (Bestenliste) gespeichert', /funde:[\s\S]*Dora/.test(readFile(path.join(SERVER, 'plugins/MorniVersteckerl/bestenliste.yml'))));

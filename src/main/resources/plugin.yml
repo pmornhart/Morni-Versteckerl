@@ -1,19 +1,19 @@
 name: MorniVersteckerl
 version: '${project.version}'
-main: de.moinmorni.versteckerl.VersteckerlPlugin
+main: net.morni.versteckerl.VersteckerlPlugin
 api-version: '1.21'
-description: Versteckerl für das MoinMorni-Netzwerk – Verstecken mit Verwandlung, 4 bis 16 Leute.
-authors: [MoinMorni]
-website: https://moinmorni.net
+description: Versteckerl für das Netzwerk morni.net – Verstecken mit Verwandlung, 4 bis 16 Leute.
+authors: [morni.net]
+website: https://morni.net
 # Läuft mit dem Netzwerk-Plugin (Sprache, Party, Statistik) und auch allein.
-softdepend: [MoinMorni]
+softdepend: [MorniNet]
 
 commands:
   versteckerladmin:
     description: Verwaltung und Tests (info, status, start, zeit, sucher, ende, neubauen, neuladen)
     usage: /versteckerladmin <info|status|start [karte]|zeit <sekunden> [karte]|sucher <namen…|weg>|ende [karte]|neubauen|neuladen>
     aliases: [vkadmin]
-    permission: moinmorni.versteckerl.admin
+    permission: morninet.versteckerl.admin
   karte:
     description: Über die Karte abstimmen
     usage: /karte [dorfplatz|wirtshaus|heustadel]
@@ -44,6 +44,6 @@ commands:
     aliases: [bestenliste, leaderboard]
 
 permissions:
-  moinmorni.versteckerl.admin:
+  morninet.versteckerl.admin:
     description: Versteckerl verwalten und im Kreativmodus in der Versteckerl-Welt bauen
     default: op

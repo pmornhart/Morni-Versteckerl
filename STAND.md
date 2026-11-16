@@ -1,11 +1,11 @@
 # Stand – Morni Versteckerl
 
-**Was es ist:** Der Versteck-Modus des MoinMorni-Netzwerks (Paper-Plugin `MorniVersteckerl`, Java 25, Paper 26.x):
+**Was es ist:** Der Versteck-Modus des Netzwerks morni.net (Paper-Plugin `MorniVersteckerl`, Java 25, Paper 26.x):
 Verstecken mit Verwandlung für 4–16 Leute. Die Versteckten werden zu einem Gegenstand der Karte (Heuballen, Fass,
 Blumentopf …), die Dorfgendarmen suchen sie. Repo `pmornhart/morni-versteckerl` (GitHub: `Morni-Versteckerl`), Jar
 `Morni-Versteckerl.jar`, Netzwerk-Kennung `versteckerl`, englisch „Hide & Seek“.
 
-## Aufbau (`src/main/java/de/moinmorni/versteckerl/`)
+## Aufbau (`src/main/java/net/morni/versteckerl/`)
 
 - `VersteckerlPlugin` (Start, Welt, Takt), `Settings`, `Texts` (de/en), `Ui`, `Items`, `Holo`, `Sidebar`, `LangBar`,
   `Boards` (Leiste + Tafeln der Gendarmerie), `Commands` (inkl. `/versteckerladmin`).
@@ -41,6 +41,12 @@ Blumentopf …), die Dorfgendarmen suchen sie. Repo `pmornhart/morni-versteckerl
   Tanzsaal ohne Decke, rosa Putz, Tafeltitel unter dem Vordach.
 - Nicht echt geprüft: Bedrock (Geyser zeigt Block-Anzeigen evtl. nicht), echte Spieler (Gleichgewicht, Zeiten),
   Paper 26.3 als Server, echter Hub.
+- **Umbenannt in morni.net** (16.11., Philip): Paket `net.morni.versteckerl`, Schnittstelle `net.morni.api.MorniNet`
+  (byte-gleich aus dem Netzwerk-Repo), `softdepend: [MorniNet]`, Recht `morninet.versteckerl.admin`, Texte und Leiste
+  „morni.net“, Test-Netzwerk `MorniNet` (`plugins/MorniNet/`, `MorniNet-FakeNetwork.jar`). Plugin-Name, Datenordner
+  (`plugins/MorniVersteckerl/`) und Kennung `versteckerl` bleiben – Spielerdaten gelten weiter. Unit-Tests,
+  `-Ppaper-26.1 compile` und echter Test **95/95** grün (eine Prüfung wartet jetzt kurz, bis das Paket da ist, das
+  Versteckte nach der Runde wieder zeigt – lief unter Last einmal zu früh).
 
 ## Offen
 
