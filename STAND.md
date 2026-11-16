@@ -46,7 +46,7 @@ Wastl in der Gendarmerie Gestalten, Pfiff-Klänge, Effekte und Titel. Repo `pmor
   Nachspiel zurückkommt, wird aus der Runde genommen (`forgetAbsent`, sonst räumte das Rundenende seine Gendarmerie-
   Leiste ab); Gefundene gelten als schon auf der Karte (`released`). Neu für Owner/Admins: `/versteckerladmin geld
   [spieler] <betrag>` (Guthaben) und `punkte [spieler] <betrag>` (Rundenpunkte), ohne Spieler für einen selbst, de/en.
-  Test-Netzwerk schreibt `playing`, `ask-lobby`, `hold-slot`. Geprüft: 44 Unit-Tests (neu `ComebackTest`, Settings),
+  Test-Netzwerk schreibt `playing`, `ask-lobby`, `hold-slot`. JUnit 6.1.3. Geprüft: 44 Unit-Tests (neu `ComebackTest`, Settings),
   Paper 26.1 übersetzt, echt (`test/run.sh`, `rueckkehr-sekunden: 20`) **171/171** + nach Neustart **5/5**, Log ohne
   Fehler – neu: alle spielen, Anna geht und kommt rechtzeitig zurück (gleiches Fass am gleichen Platz eingerastet,
   unsichtbar, Knöpfe, holdSlot 20 → 0), Carl (Gendarm) kommt zu spät (holdSlot 0, Runde gezählt, als Nachzügler
