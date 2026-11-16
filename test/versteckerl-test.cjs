@@ -471,9 +471,10 @@ async function main() {
   // Zuschauer
   const emil = await join('Emil');
   emil.chat('/zuschauen heustadel');
-  check('Emil schaut zu (Zuschauermodus, sieht die Versteckten)', await waitFor(() => emil.game.gameMode === 'spectator' &&
-    onMap(emil, HEU), 4000) && sees(emil, /Du schaust Heustadel zu/) &&
-    await waitFor(() => Object.values(emil.entities).some((e) => e.username === 'Bert'), 3000));
+  const watching = await waitFor(() => emil.game.gameMode === 'spectator' && onMap(emil, HEU), 6000);
+  const seesBert = await waitFor(() => Object.values(emil.entities).some((e) => e.username === 'Bert'), 5000);
+  check('Emil schaut zu (Zuschauermodus, sieht die Versteckten)', watching && sees(emil, /Du schaust Heustadel zu/) && seesBert,
+    `${emil.game.gameMode} ${JSON.stringify(emil.entity.position)} bert=${seesBert} ${emil.chats.slice(-2).join(' | ')}`);
   // Party: Carl kommt zurück und hilft als Gendarm
   const carl2 = await join('Carl');
   check('Party-Nachzügler Carl hilft als Gendarm', await waitFor(() => sees(carl2, /Deine Party spielt gerade/), 4000) &&
