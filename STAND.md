@@ -2,30 +2,62 @@
 
 **Was es ist:** Der Versteck-Modus des Netzwerks morni.net (Paper-Plugin `MorniVersteckerl`, Java 25, Paper 26.x):
 Verstecken mit Verwandlung für 4–16 Leute. Die Versteckten werden zu einem Gegenstand der Karte (Heuballen, Fass,
-Blumentopf …), die Dorfgendarmen suchen sie. Repo `pmornhart/morni-versteckerl` (GitHub: `Morni-Versteckerl`), Jar
-`Morni-Versteckerl.jar`, Netzwerk-Kennung `versteckerl`, englisch „Hide & Seek“.
+Blumentopf …), die Dorfgendarmen suchen sie. Punkte aus den Runden kommen aufs Guthaben, damit kauft man bei Krämer
+Wastl in der Gendarmerie Gestalten, Pfiff-Klänge, Effekte und Titel. Repo `pmornhart/morni-versteckerl` (GitHub:
+`Morni-Versteckerl`), Jar `Morni-Versteckerl.jar`, Netzwerk-Kennung `versteckerl`, englisch „Hide & Seek“.
 
 ## Aufbau (`src/main/java/net/morni/versteckerl/`)
 
 - `VersteckerlPlugin` (Start, Welt, Takt), `Settings`, `Texts` (de/en), `Ui`, `Items`, `Holo`, `Sidebar`, `LangBar`,
   `Boards` (Leiste + Tafeln der Gendarmerie), `Commands` (inkl. `/versteckerladmin`).
-- `rules/` (ohne Server, mit Tests): `Shape` (15 Gestalten, Blockzustand als Text, „gleiche Art“ für falsche Treffer),
-  `Roles` (Gendarmen auslosen: Anteil, Fairness, Partys), `Points`, `Outcome`, `Whistle` (Pfiff-Pflicht), `HallRules`,
-  `Ray` (Treffer-Rechnung Blick ↔ Kasten), `Votes`, `Groups`.
-- `data/`: `PlayerData`, `Store`, `Leaderboard` (Steckbriefe: Punkte, Funde, unentdeckt).
+- `rules/` (ohne Server, mit Tests): `Shape` (15 freie + 8 Gestalten aus dem Laden, Blockzustand als Text, „gleiche
+  Art“ für falsche Treffer, `Tier`), `Roles` (Gendarmen auslosen: Anteil, Fairness, Partys), `Points` (Vorgaben),
+  `Rewards` (Punkte aus der config.yml: Pfiff mit Lautstärke und Mut, Letzter, erster Fund, Serie, Tagesbonus),
+  `Settlement` (Abrechnung am Rundenende), `Helps` (Rundenladen: Regeln, Preis, Abklingzeit, je Runde), `Catalog`
+  (alles aus dem Kramerladen in sechs Abteilungen), `Outcome`, `Whistle` (Pfiff-Pflicht), `HallRules`, `Ray`
+  (Treffer-Rechnung Blick ↔ Kasten), `Votes`, `Groups`.
+- `data/`: `PlayerData` (dazu Guthaben, Punkte insgesamt, Kauf in einem Schritt, Freigeschaltetes, Ausgerüstetes,
+  Serie, Tagesbonus), `Store`, `Leaderboard` (Steckbriefe: beste Runde, Punkte insgesamt, Funde, unentdeckt).
 - `world/` (Baupläne als Text, ohne Server prüfbar): `Plan`, `Blocks` (Zustände zerlegen, Zäune/Mauern verbinden),
   `Decor`, `Kit` (Alpenhaus, Dächer, Möbel), `HallPlan` (Gendarmerie), `DorfplatzPlan`, `WirtshausPlan`,
   `HeustadelPlan`, `MapType` + `MapLayout`, `Construction` (Pläne im Hintergrund, Blöcke Stück für Stück, `VERSION`),
   `VoidGenerator`.
-- `game/`: `Game` (Versteckzeit, Suchzeit, Einrasten, Schläge, Hilfen, Ende, Sichtbarkeit), `Disguise`
-  (Block-Anzeige + echter Block, Luft für den Besitzer), `Member`, `Gear`, `ShapeMenu`, `Games`.
-- `hall/`: `Hall`, `HallMenus`. `menu/`: `Menu`, `MenuListener`. `listen/`: `PlayerListener`, `GameListener`
-  (Arm-Schwung → Treffer-Rechnung), `GuardListener`. `net/`: `Network`, `Connected`, `Standalone` (Sprache aus dem Client).
-- `test/`: `run.sh`, `versteckerl-test.cjs`, `rcon.cjs`, `fake-network/`.
+- `game/`: `Game` (Versteckzeit, Suchzeit, Einrasten, Schläge, Hilfen, Rundenladen, Abrechnung, Ende, Sichtbarkeit),
+  `Disguise` (Block-Anzeige + echter Block, Luft für den Besitzer), `Member`, `Gear`, `ShapeMenu` (auch gesperrte
+  Laden-Gestalten), `HelpMenu` (Kramerkiste), `Flair` (Pfiff-Klänge, Fund-/Sieg-Effekte, Spuren aus Minecraft-Klängen
+  und -Partikeln), `Games`.
+- `hall/`: `Hall` (Spuren beim Laufen), `HallMenus`, `Shop` (Kaufen mit Nachfrage, Ausrüsten, Titel), `ShopMenus`
+  (Kramerladen-Fenster), `Kraemer` (Krämer Wastl am Stand). `menu/`: `Menu`, `MenuListener` (offene Menüs werden jede
+  Sekunde neu gezeichnet). `listen/`: `PlayerListener`, `GameListener` (Arm-Schwung → Treffer-Rechnung),
+  `GuardListener`. `net/`: `Network`, `Connected`, `Standalone` (Sprache aus dem Client).
+- `test/`: `run.sh` (mit Neustart-Teil), `versteckerl-test.cjs`, `rcon.cjs`, `fake-network/`.
 
 ## Stand (16.11.2026)
 
-- Version 0.1.0 (Branch `claude/erster-stand`, wartet auf Philips Go): alles aus dem README.
+- **Version 0.2.0 – Punkte sammeln und einkaufen** (Philips Wunsch, Vorbild nur die Mechanik großer
+  Hide-and-Seek-Server; Branch `claude/erster-stand`, wartet auf Philips Go): Punkte der Runde (mehr Anlässe: erster
+  Fund, Letzter, mutiger und lauter Pfiff) → Abrechnung am Rundenende → Guthaben (dazu Siegesserie, Tagesbonus);
+  „Punkte insgesamt“ sinken nie (Steckbrief, neue Bestenliste). Rundenladen „Kramerkiste“ (Lockpfiff, Nebelwolke, noch
+  ein Gestaltwechsel; Laterne, noch eine Spürnase – bezahlt mit Rundenpunkten, begrenzt, mit Abklingzeit und
+  Gegenmittel). Kramerladen bei Krämer Wastl (Stand mit Markise in der Gendarmerie, Smaragd, `/laden`): 8 Gestalten
+  (Werkbank, Schleifstein, Webstuhl, Blühender Busch, Lesepult, Kuchen, Kürbislaterne, Festtagskuchen – je mindestens
+  6 gleich aussehende Attrappen auf den passenden Karten), 7 Pfiff-Klänge, 6 Fund-Effekte, 6 Spuren, 5 Sieg-Effekte,
+  7 Titel; Kauf mit Nachfrage und Vorschau, Ausrüsten im Menü, Lieblingsgestalt. Alle Zahlen, Preise und an/aus je
+  Stück in der config.yml (`punkte`, `rundenladen`, `laden`). Bau-Version 2.
+- 40 Unit-Tests grün (neu: Punkte/Pfiff/Mut/Serie, Abrechnung, Rundenladen-Regeln, Katalog, Kauf atomar und nie
+  negativ, Spielerdatei mit Guthaben, alte Dateien, config.yml = Vorgaben, Preise/an-aus aus der config, Texte aller
+  Stücke, gleich aussehende Attrappen der Laden-Gestalten). Übersetzt gegen Paper 26.3 und 26.1.
+- Echter Test (`test/run.sh`, Paper 26.1.2 + Test-Netzwerk, fünf Test-Spieler): **150/150** und nach einem Neustart
+  des Servers **4/4**, Server-Log ohne Fehler – zusätzlich zu allem Bisherigen: Krämer Wastl (Rechtsklick öffnet den
+  Laden, englisch), Smaragd, sechs Abteilungen, „So verdienst du Punkte“, zu wenig Guthaben, mutiger Pfiff (+4),
+  Kramerkiste (Lockpfiff mit Abklingzeit, noch ein Gestaltwechsel, noch eine Spürnase, Laterne, zu wenig Punkte für die
+  Nebelwolke, Nebelwolke macht die Gendarmin kurz blind), Abrechnung (Runde, Ausgaben, Tagesbonus, Guthaben, Punkte
+  insgesamt, Leiste), Kauf mit Nachfrage (Werkbank, Kuhglocke, Titel), Lieblingsgestalt an/aus, Titel mit Bedingung,
+  Netzwerk-Statistik (`earned`, `bonus`, `helps`, `best_streak`, `unlocks`, `spent`), Spielerdatei, Lieblingsgestalt
+  Werkbank in der Runde (eingerastet als echte Werkbank), gesperrte Gestalt für andere, Kuhglocke +2, Siegesserie ohne
+  zweiten Tagesbonus, Titel in der Rangliste; nach dem Neustart Guthaben, Freigeschaltetes, Ausgerüstetes, Wastl und
+  Tafeln wie vorher.
+- Version 0.1.0: alles aus dem README (noch nicht veröffentlicht – das erste Release wird 0.2.0).
 - 27 Unit-Tests grün (Texte, Rollen, Punkte, Sieg, Pfiff-Pflicht, Countdown-Regel, Treffer-Rechnung, Gestalten,
   Gruppen/Abstimmung, Spielerdaten, Steckbriefe, Baupläne: ≥ 6 Attrappen je Gestalt, freie Startpunkte, dichte
   Gendarmenstube, unsichtbarer Rand, nur 26.x-Blocknamen, Zäune/Mauern). Übersetzt gegen Paper 26.3 und 26.1.
@@ -50,6 +82,9 @@ Blumentopf …), die Dorfgendarmen suchen sie. Repo `pmornhart/morni-versteckerl
 
 ## Offen
 
-- Philip: Bilder ansehen, ausprobieren; Go für `main` (dann Release v0.1.0).
+- Philip: Bilder ansehen, ausprobieren; Go für `main` (dann erstes Release v0.2.0).
+- Einstellungs-Katalog im Netzwerk-Repo: neue Schlüssel `punkte.*`, `rundenladen.*`, `laden.*` (Liste im Bericht vom
+  16.11.); Webseite/Statistik: neue Werte `earned`, `bonus`, `helps`, `best_streak`, `unlocks`, `spent`.
+- Nicht echt geprüft: Gleichgewicht der Preise mit echten Spielern, Bedrock (Truhen-Menüs, Partikel), echter Hub.
 - Netzwerk-Repo: `MODE_REPOS`-Eintrag, Lobby-Figur, Webseite (Modus-Seite, Statistik-Schlüssel), Einstellungs-Katalog
   (config.yml).

@@ -41,6 +41,7 @@ public final class Hall {
 
     public static final int SLOT_VOTE = 0;
     public static final int SLOT_READY = 1;
+    public static final int SLOT_SHOP = 2;
     public static final int SLOT_STATS = 4;
     public static final int SLOT_LOBBY = 8;
     private static final int ALL_READY_SECONDS = 5;
@@ -52,6 +53,8 @@ public final class Hall {
     private final Votes<MapType> votes = new Votes<>(MapType.class);
     private final List<UUID> preferredSeekers = new ArrayList<>();
     private final Random random = new Random();
+    /** Letzte Stelle je Spieler (für die Spur beim Laufen). */
+    private final Map<UUID, Location> lastSpot = new HashMap<>();
     private int countdown = -1;
 
     public Hall(VersteckerlPlugin plugin) {
@@ -123,6 +126,10 @@ public final class Hall {
         inv.setItem(SLOT_VOTE, Items.hallTag(Items.named(Material.COMPASS, 1, Texts.text(lang, "item.vote"),
                 Texts.lines(lang, "item.vote.lore")), "vote"));
         inv.setItem(SLOT_READY, readyItem(p, lang));
+        if (plugin.shop().open()) {
+            inv.setItem(SLOT_SHOP, Items.hallTag(Items.named(Material.EMERALD, 1, Texts.text(lang, "item.shop"),
+                    Texts.lines(lang, "item.shop.lore")), "shop"));
+        }
         inv.setItem(SLOT_STATS, Items.hallTag(Items.named(Material.PAPER, 1, Texts.text(lang, "item.stats"),
                 Texts.lines(lang, "item.stats.lore")), "stats"));
         inv.setItem(SLOT_LOBBY, Items.hallTag(Items.named(Material.RED_BED, 1, Texts.text(lang, "item.lobby"),
@@ -141,6 +148,29 @@ public final class Hall {
         ready.remove(uuid);
         votes.forget(uuid);
         leaders.remove(uuid);
+        lastSpot.remove(uuid);
+    }
+
+    /**
+     * Spuren aus dem Kramerladen: wer in der Gendarmerie läuft, zieht seine Spur hinter sich her (nie in der Runde –
+     * sie würde Versteckte verraten).
+     */
+    public void trails() {
+        for (UUID u : waiting) {
+            Player p = Bukkit.getPlayer(u);
+            if (p == null || p.getWorld() != plugin.world() || p.getGameMode() == GameMode.SPECTATOR) {
+                continue;
+            }
+            Location now = p.getLocation();
+            Location before = lastSpot.put(u, now);
+            if (before == null || before.getWorld() != now.getWorld() || before.distanceSquared(now) < 0.01) {
+                continue;
+            }
+            String id = plugin.shop().equippedId(plugin.data(p), net.morni.versteckerl.rules.Catalog.Kind.TRAIL);
+            if (!id.isEmpty() && !"keine".equals(id)) {
+                net.morni.versteckerl.game.Flair.trail(p, id);
+            }
+        }
     }
 
     public void toggleReady(Player p) {

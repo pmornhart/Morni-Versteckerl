@@ -52,7 +52,14 @@ public final class Boards {
             if (me != null) {
                 lines.add(Component.text("  "));
                 lines.add(Texts.text(lang, me.hider() ? "side.role.hider" : "side.role.seeker"));
-                lines.add(Texts.text(lang, "side.points", Placeholder.unparsed("n", String.valueOf(me.points()))));
+                lines.add(me.spent() > 0
+                        ? Texts.text(lang, "side.points.left", Placeholder.unparsed("n", String.valueOf(me.points())),
+                                Placeholder.unparsed("left", String.valueOf(me.available())))
+                        : Texts.text(lang, "side.points", Placeholder.unparsed("n", String.valueOf(me.points()))));
+                String title = g.titleOf(p.getUniqueId(), lang);
+                if (!title.isEmpty()) {
+                    lines.add(Texts.text(lang, "side.title-line", Placeholder.unparsed("title", title)));
+                }
             } else {
                 lines.add(Component.text("  "));
                 lines.add(Texts.text(lang, "side.role.spectator"));
@@ -74,11 +81,17 @@ public final class Boards {
                 : Texts.text(lang, "side.hall.wait"));
         lines.add(Component.text(" "));
         plugin.store().loaded(p.getUniqueId()).ifPresent(d -> {
+            lines.add(Texts.text(lang, "side.hall.balance", Placeholder.unparsed("n", String.valueOf(d.balance()))));
+            lines.add(Texts.text(lang, "side.hall.total", Placeholder.unparsed("n", String.valueOf(d.points()))));
+            if (d.streak() > 1) {
+                lines.add(Texts.text(lang, "side.hall.streak", Placeholder.unparsed("n", String.valueOf(d.streak()))));
+            }
+            lines.add(Component.text("   "));
             lines.add(Texts.text(lang, "side.hall.found", Placeholder.unparsed("n", String.valueOf(d.found()))));
             lines.add(Texts.text(lang, "side.hall.survived", Placeholder.unparsed("n", String.valueOf(d.survived()))));
             lines.add(Texts.text(lang, "side.hall.best", Placeholder.unparsed("n", String.valueOf(d.bestPoints()))));
         });
-        lines.add(Component.text("  "));
+        lines.add(Component.text("    "));
         lines.add(Texts.text(lang, "side.site"));
         sidebar.show(p, Texts.text(lang, "side.title"), lines);
     }
@@ -103,7 +116,7 @@ public final class Boards {
             Location at = new Location(plugin.world(), t[0] + 0.5, MapType.FLOOR_Y + 2.95, t[1] + 1.2);
             hallHolos.add(Holo.spawn(plugin, at, lang -> stand(lang, m), 0.8f, 160));
         }
-        Location board = new Location(plugin.world(), HallPlan.BOARD[0] + 1.6, MapType.FLOOR_Y + 1.9,
+        Location board = new Location(plugin.world(), HallPlan.BOARD[0] + 1.6, MapType.FLOOR_Y + 1.35,
                 HallPlan.BOARD[1] + 0.5);
         hallHolos.add(Holo.spawn(plugin, board, this::wanted, 0.6f, 200));
     }

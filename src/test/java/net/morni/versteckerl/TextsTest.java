@@ -7,7 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import net.morni.versteckerl.data.Leaderboard;
+import net.morni.versteckerl.hall.Shop;
+import net.morni.versteckerl.rules.Catalog;
+import net.morni.versteckerl.rules.Helps;
 import net.morni.versteckerl.rules.Shape;
+import net.morni.versteckerl.rules.Tier;
 import net.morni.versteckerl.world.MapType;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -129,7 +133,8 @@ class TextsTest {
                             || k.endsWith(".yml") || k.endsWith(".txt") || k.endsWith(".json") || k.endsWith(".log")
                             || k.endsWith(".net") || k.startsWith("block.") || k.startsWith("entity.")
                             || k.startsWith("item.book") || k.startsWith("ui.") || k.startsWith("gendarmerie.")
-                            || k.startsWith("runde.") || k.startsWith("hilfen.") || k.endsWith(".");
+                            || k.startsWith("runde.") || k.startsWith("hilfen.") || k.startsWith("punkte.")
+                            || k.startsWith("laden.") || k.startsWith("rundenladen.") || k.endsWith(".");
                     if (!code && !Texts.keys().contains(k)) {
                         missing.add(k + " (" + f.getFileName() + ")");
                     }
@@ -137,6 +142,44 @@ class TextsTest {
             }
         }
         assertTrue(missing.isEmpty(), "Texte fehlen: " + missing);
+    }
+
+    /** Alles aus dem Kramerladen und dem Rundenladen hat Namen, Beschreibung und alle Hinweise in beiden Sprachen. */
+    @Test
+    void everyShopThingHasTexts() {
+        for (Catalog.Item i : Catalog.all()) {
+            assertTrue(Texts.keys().contains(Shop.nameKey(i)), i.key());
+            assertTrue(Texts.keys().contains(Shop.descKey(i)), i.key());
+        }
+        for (Catalog.Kind k : Catalog.Kind.values()) {
+            assertTrue(Texts.keys().contains("menu.shop.kind." + k.section()), k.section());
+            assertTrue(Texts.keys().contains("menu.shop.kind." + k.section() + ".desc"), k.section());
+        }
+        for (Catalog.Stat st : Catalog.Stat.values()) {
+            assertTrue(Texts.keys().contains("shop.need." + st.id()), st.id());
+        }
+        for (Tier t : Tier.values()) {
+            assertTrue(Texts.keys().contains("tier." + t.id()), t.id());
+        }
+        for (int level = 1; level <= 3; level++) {
+            assertTrue(Texts.keys().contains("menu.shop.loud." + level));
+        }
+        for (Helps.Help h : Helps.Help.values()) {
+            assertTrue(Texts.keys().contains("help." + h.id()), h.id());
+            assertTrue(Texts.keys().contains("help." + h.id() + ".desc"), h.id());
+        }
+        for (Helps.Verdict v : Helps.Verdict.values()) {
+            String id = v.name().toLowerCase(java.util.Locale.ROOT).replace('_', '-');
+            assertTrue(Texts.keys().contains("menu.helps.state." + id), id);
+            if (v != Helps.Verdict.OK) {
+                assertTrue(Texts.keys().contains("help.no." + id), id);
+            }
+        }
+        assertEquals("Kuhglocke", Shop.name("de", Catalog.get("pfiff:kuhglocke")));
+        assertEquals("Cowbell", Shop.name("en", Catalog.get("pfiff:kuhglocke")));
+        assertEquals("Workbench", Shop.name("en", Catalog.get("gestalt:werkbank")));
+        assertEquals("25 Funden (du hast 3)", Texts.plain("de", "shop.need.funde",
+                Placeholder.unparsed("n", "25"), Placeholder.unparsed("have", "3")));
     }
 
     @Test

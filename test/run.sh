@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Echter Test von Morni Versteckerl: baut das Plugin und das Test-Netzwerk, richtet einen Paper-Server ein (offline,
-# eigener Port, RCON an), startet ihn, schickt Test-Spieler (mineflayer) durch alle Abläufe und hält ihn wieder an.
+# eigener Port, RCON an), startet ihn, schickt Test-Spieler (mineflayer) durch alle Abläufe, startet ihn neu (sind
+# Guthaben und Freischaltungen noch da?) und hält ihn wieder an.
 #
 #   test/run.sh                 # alles
 #   KEEP=1 test/run.sh          # Server danach laufen lassen (zum Nachschauen)
@@ -93,6 +94,19 @@ hilfen:
   sprung-sekunden: 4
   sprung-abklingzeit-sekunden: 10
   spuernase-sekunden: 4
+# Rundenladen mit kleinen Testpreisen (in der Runde gibt es im Test nur wenige Punkte).
+rundenladen:
+  lockpfiff:
+    preis: 1
+    abklingzeit-sekunden: 20
+  nebelwolke:
+    preis: 3
+  gestaltwechsel:
+    preis: 2
+  laterne:
+    preis: 2
+  spuernase:
+    preis: 3
 EOC
 # Test-Netzwerk: Bert spricht Englisch, Anna und Carl sind eine Party (Anna führt).
 cat > "$SERVER/plugins/MorniNet/fake.properties" <<'EOF'
@@ -100,7 +114,7 @@ lang.Bert=en
 party.Anna=Anna,Carl
 EOF
 rm -f "$SERVER/plugins/MorniNet/calls.log"
-rm -rf "$SERVER/plugins/MorniVersteckerl/spieler" "$SERVER/plugins/MorniVersteckerl/bestenliste.yml"
+rm -rf "$SERVER/plugins/MorniVersteckerl/spieler" "$SERVER/plugins/MorniVersteckerl/bestenliste.yml" "$SERVER/vk-laden-dora.txt"
 cp "$REPO/target/Morni-Versteckerl.jar" "$SERVER/plugins/"
 # nur ein Test-Netzwerk im Server (auch keine ältere Fassung unter anderem Namen)
 rm -f "$SERVER"/plugins/*-FakeNetwork.jar
@@ -109,13 +123,23 @@ for jar in ${EXTRA_PLUGINS:-}; do
   cp "$jar" "$SERVER/plugins/"
 done
 
-echo "== Server starten (Port $PORT, RCON $RCON_PORT)"
 cd "$SERVER"
-: > console.log
-nice -n 15 "$JAVA" -Xms1G -Xmx2G -jar paper.jar --nogui < /dev/null > console.log 2>&1 &
-PID=$!
+PID=""
+start_server() {
+  echo "== Server starten (Port $PORT, RCON $RCON_PORT)"
+  : > console.log
+  nice -n 15 "$JAVA" -Xms1G -Xmx2G -jar paper.jar --nogui < /dev/null > console.log 2>&1 &
+  PID=$!
+  for _ in $(seq 1 300); do
+    if grep -q "Versteckerl ist bereit" console.log; then break; fi
+    if ! kill -0 "$PID" 2>/dev/null; then echo "Server ist abgestürzt:"; tail -40 console.log; exit 1; fi
+    sleep 1
+  done
+  grep -q "Versteckerl ist bereit" console.log || { echo "Versteckerl wurde nicht bereit:"; tail -40 console.log; exit 1; }
+  grep -E "Fertig gebaut|Versteckerl ist bereit|Netzwerk" console.log || true
+}
 stop_server() {
-  if kill -0 "$PID" 2>/dev/null; then
+  if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
     node "$HERE/rcon.cjs" "127.0.0.1:$RCON_PORT" "$SERVER/.rcon-pass" stop >/dev/null 2>&1 || kill "$PID" || true
     for _ in $(seq 1 60); do kill -0 "$PID" 2>/dev/null || break; sleep 1; done
     kill -9 "$PID" 2>/dev/null || true
@@ -124,14 +148,7 @@ stop_server() {
 if [ "${KEEP:-0}" != "1" ]; then
   trap stop_server EXIT
 fi
-
-for _ in $(seq 1 240); do
-  if grep -q "Versteckerl ist bereit" console.log; then break; fi
-  if ! kill -0 "$PID" 2>/dev/null; then echo "Server ist abgestürzt:"; tail -40 console.log; exit 1; fi
-  sleep 1
-done
-grep -q "Versteckerl ist bereit" console.log || { echo "Versteckerl wurde nicht bereit:"; tail -40 console.log; exit 1; }
-grep -E "Fertig gebaut|Versteckerl ist bereit|Netzwerk" console.log || true
+start_server
 
 if [ "${SKIP_TEST:-0}" = "1" ]; then
   echo "Server läuft (PID $PID) – anhalten mit: node $HERE/rcon.cjs 127.0.0.1:$RCON_PORT $SERVER/.rcon-pass stop"
@@ -141,11 +158,22 @@ fi
 echo "== Test-Spieler"
 STATUS=0
 NO_MOVE="${NO_MOVE:-0}" node "$HERE/versteckerl-test.cjs" 127.0.0.1 "$PORT" "127.0.0.1:$RCON_PORT" "$SERVER/.rcon-pass" "$SERVER" || STATUS=$?
-
+errors() {
+  if grep -qE "ERROR|Exception" console.log; then
+    grep -E "ERROR|Exception" console.log | head -20
+  else
+    echo "keine"
+  fi
+}
 echo "== Fehler im Server-Log:"
-if grep -qE "ERROR|Exception" console.log; then
-  grep -E "ERROR|Exception" console.log | head -20
-else
-  echo "keine"
+errors
+
+if [ "${SKIP_RESTART:-0}" != "1" ]; then
+  echo "== Neustart: Guthaben, Freischaltungen und Ausrüstung müssen bleiben"
+  stop_server
+  start_server
+  node "$HERE/versteckerl-test.cjs" 127.0.0.1 "$PORT" "127.0.0.1:$RCON_PORT" "$SERVER/.rcon-pass" "$SERVER" --nach-neustart || STATUS=$?
+  echo "== Fehler im Server-Log (nach dem Neustart):"
+  errors
 fi
 exit $STATUS

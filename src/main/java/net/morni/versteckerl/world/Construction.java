@@ -40,7 +40,7 @@ import org.bukkit.scheduler.BukkitTask;
 public final class Construction {
 
     /** Bau-Version: erhöhen, wenn sich Gendarmerie oder Karten ändern – dann wird beim nächsten Start neu gebaut. */
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
     private static final long BUDGET_NANOS = 25_000_000L;
     private static final int CHECK_EVERY = 256;
 

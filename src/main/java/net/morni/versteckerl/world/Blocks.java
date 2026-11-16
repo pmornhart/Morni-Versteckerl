@@ -19,7 +19,8 @@ public final class Blocks {
             "iron_chain", "iron_bars", "flower_pot", "composter", "hopper", "brewing_stand", "grindstone", "lectern",
             "stonecutter", "enchanting_table", "end_rod", "lightning_rod", "decorated_pot", "dirt_path", "farmland",
             "cake", "chest", "trapped_chest", "ender_chest", "bamboo", "sugar_cane", "cactus", "candle", "rail",
-            "tripwire_hook", "daylight_detector", "conduit", "heavy_core", "pointed_dripstone");
+            "tripwire_hook", "daylight_detector", "conduit", "heavy_core", "pointed_dripstone", "azalea",
+            "flowering_azalea", "candle_cake");
     private static final List<String> PARTIAL_SUFFIX = List.of("_slab", "_stairs", "_fence", "_fence_gate", "_wall",
             "_pane", "_door", "_trapdoor", "_carpet", "_button", "_pressure_plate", "_sign", "_banner", "_candle",
             "_bed", "_head", "_skull", "_leaves", "_sapling", "_rail", "_tulip", "_bush", "_petals", "_coral",

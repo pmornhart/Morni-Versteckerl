@@ -6,6 +6,8 @@ import net.morni.versteckerl.Ui;
 import net.morni.versteckerl.VersteckerlPlugin;
 import net.morni.versteckerl.game.Game;
 import net.morni.versteckerl.hall.HallMenus;
+import net.morni.versteckerl.hall.Kraemer;
+import net.morni.versteckerl.hall.ShopMenus;
 import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -42,6 +44,9 @@ public final class PlayerListener implements Listener {
         String lang = plugin.lang(p);
         p.sendMessage(Texts.msg(lang, "hall.welcome"));
         p.sendMessage(Texts.msg(lang, "hall.how"));
+        if (plugin.shop().open()) {
+            p.sendMessage(Texts.msg(lang, "hall.shop-hint"));
+        }
         Ui.title(p, Texts.text(lang, "hall.title"), Texts.text(lang, "hall.subtitle"), 2500);
         // Spielt die Party schon? Dann gleich dazu – als Gendarm.
         UUID uuid = p.getUniqueId();
@@ -72,6 +77,7 @@ public final class PlayerListener implements Listener {
             g.leave(p);
         }
         plugin.boards().sidebar().forget(p.getUniqueId());
+        plugin.shop().forget(p.getUniqueId());
         plugin.store().unload(p.getUniqueId());
         plugin.forgetLanguage(p.getUniqueId());
     }
@@ -94,6 +100,7 @@ public final class PlayerListener implements Listener {
                 case "vote" -> HallMenus.vote(plugin, p);
                 case "ready" -> plugin.hall().toggleReady(p);
                 case "stats" -> HallMenus.stats(plugin, p);
+                case "shop" -> ShopMenus.open(plugin, p);
                 case "lobby" -> {
                     p.sendMessage(Texts.msg(plugin.lang(p), "lobby.going"));
                     plugin.net().toLobby(p, Texts.text(plugin.lang(p), "lobby.kick"));
@@ -117,6 +124,7 @@ public final class PlayerListener implements Listener {
             case "whistle" -> g.whistle(p, false);
             case "jump" -> g.jump(p);
             case "sniff" -> g.sniff(p);
+            case "helps" -> g.openHelps(p);
             case "stick" -> p.sendActionBar(Texts.text(plugin.lang(p), "item.stick.hint"));
             default -> {
             }
@@ -125,7 +133,17 @@ public final class PlayerListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOW)
     public void onEntity(PlayerInteractEntityEvent e) {
-        if (e.getPlayer().getWorld() == plugin.world() && !plugin.builder(e.getPlayer())) {
+        if (e.getPlayer().getWorld() != plugin.world()) {
+            return;
+        }
+        if (Kraemer.is(e.getRightClicked())) {
+            e.setCancelled(true);
+            if (e.getHand() == EquipmentSlot.HAND && plugin.games().of(e.getPlayer().getUniqueId()) == null) {
+                ShopMenus.open(plugin, e.getPlayer());
+            }
+            return;
+        }
+        if (!plugin.builder(e.getPlayer())) {
             e.setCancelled(true);
         }
     }

@@ -9,15 +9,16 @@ import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
- * Die Steckbriefe der Gendarmerie: Bestenlisten in drei Sparten (beste Runde in Punkten, meiste Funde, am öftesten bis
- * zum Schluss versteckt). Je Name ein Eintrag (der beste Wert zählt), höher ist besser, bei Gleichstand steht vorn, wer
- * es zuerst geschafft hat. Gespeichert als {@code bestenliste.yml}.
+ * Die Steckbriefe der Gendarmerie: Bestenlisten in vier Sparten (beste Runde in Punkten, Punkte insgesamt, meiste
+ * Funde, am öftesten bis zum Schluss versteckt). Je Name ein Eintrag (der beste Wert zählt), höher ist besser, bei
+ * Gleichstand steht vorn, wer es zuerst geschafft hat. Gespeichert als {@code bestenliste.yml}.
  */
 public final class Leaderboard {
 
     /** Die Sparten. */
     public enum Board {
         POINTS("punkte"),
+        TOTAL("gesamt"),
         FOUND("funde"),
         SURVIVED("verstecke");
 

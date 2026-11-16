@@ -4,6 +4,8 @@ import net.morni.versteckerl.data.Leaderboard;
 import net.morni.versteckerl.data.PlayerData;
 import net.morni.versteckerl.game.Game;
 import net.morni.versteckerl.hall.HallMenus;
+import net.morni.versteckerl.hall.ShopMenus;
+import net.morni.versteckerl.rules.Catalog;
 import net.morni.versteckerl.world.MapType;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -68,6 +70,16 @@ final class Commands implements TabExecutor {
                 }
             }
             case "zuschauen" -> spectate(p, args);
+            case "laden" -> {
+                Game g = plugin.games().playing(p.getUniqueId());
+                if (g != null) {
+                    g.openHelps(p);
+                } else if (plugin.games().of(p.getUniqueId()) != null) {
+                    p.sendMessage(Texts.msg(lang, "shop.not-now"));
+                } else {
+                    ShopMenus.open(plugin, p);
+                }
+            }
             case "verlassen" -> {
                 Game g = plugin.games().of(p.getUniqueId());
                 if (g == null) {
@@ -245,10 +257,70 @@ final class Commands implements TabExecutor {
                 plugin.reloadSettings();
                 s.sendMessage(Component.text("Einstellungen neu geladen."));
             }
+            case "guthaben" -> balance(s, args);
+            case "laden" -> wallet(s, args);
             default -> s.sendMessage(Component.text("/versteckerladmin info|status|start [karte]|zeit <sek> [karte]"
-                    + "|sucher <namen…|weg>|ende [karte]|neubauen|neuladen"));
+                    + "|sucher <namen…|weg>|ende [karte]|guthaben <spieler> <zahl|+zahl|-zahl>|laden <spieler>"
+                    + "|neubauen|neuladen"));
         }
         return true;
+    }
+
+    /** Guthaben setzen oder ändern (Verwaltung, Tests): nie unter 0, zählt nicht zu „Punkte insgesamt“. */
+    private void balance(CommandSender s, String[] args) {
+        if (args.length < 3) {
+            s.sendMessage(Component.text("/versteckerladmin guthaben <spieler> <zahl|+zahl|-zahl>"));
+            return;
+        }
+        Player p = Bukkit.getPlayerExact(args[1]);
+        if (p == null) {
+            s.sendMessage(Component.text("Nicht online: " + args[1]));
+            return;
+        }
+        PlayerData d = plugin.data(p);
+        String v = args[2];
+        long n;
+        try {
+            n = Long.parseLong(v.startsWith("+") ? v.substring(1) : v);
+        } catch (NumberFormatException e) {
+            s.sendMessage(Component.text("Keine Zahl: " + v));
+            return;
+        }
+        long now = v.startsWith("+") || v.startsWith("-") ? d.adjust(n) : d.adjust(n - d.balance());
+        plugin.store().save(d);
+        plugin.boards().hall(p);
+        s.sendMessage(Component.text("Guthaben " + p.getName() + ": " + now));
+    }
+
+    /** Kramerladen-Werte einer Person (Verwaltung, Tests). */
+    private void wallet(CommandSender s, String[] args) {
+        if (args.length < 2) {
+            s.sendMessage(Component.text("/versteckerladmin laden <spieler>"));
+            return;
+        }
+        Player online = Bukkit.getPlayerExact(args[1]);
+        Optional<PlayerData> data;
+        if (online != null) {
+            data = Optional.of(plugin.data(online));
+        } else {
+            @SuppressWarnings("deprecation")
+            OfflinePlayer off = Bukkit.getOfflinePlayer(args[1]);
+            data = plugin.store().read(off.getUniqueId());
+        }
+        if (data.isEmpty()) {
+            s.sendMessage(Component.text("Keine Daten: " + args[1]));
+            return;
+        }
+        PlayerData d = data.get();
+        List<String> eq = new ArrayList<>();
+        for (Catalog.Kind k : Catalog.Kind.values()) {
+            Catalog.Item i = plugin.shop().equipped(d, k);
+            eq.add(k.prefix() + ":" + (i == null ? "-" : i.id()));
+        }
+        s.sendMessage(Component.text("guthaben=" + d.balance() + " gesamt=" + d.points() + " ausgegeben=" + d.spent()
+                + " serie=" + d.streak() + " beste-serie=" + d.bestStreak() + " tagesbonus=" + (d.dailyDay().isEmpty()
+                        ? "-" : d.dailyDay()) + " hilfen=" + d.helps() + " frei=" + String.join(",", d.owned())
+                + " aus=" + String.join(",", eq)));
     }
 
     private Game gameArg(String[] args, int index) {
@@ -264,7 +336,11 @@ final class Commands implements TabExecutor {
         String name = command.getName().toLowerCase(Locale.ROOT);
         List<String> options = new ArrayList<>();
         if (name.equals("versteckerladmin") && args.length == 1) {
-            options.addAll(List.of("info", "status", "start", "zeit", "sucher", "ende", "neubauen", "neuladen"));
+            options.addAll(List.of("info", "status", "start", "zeit", "sucher", "ende", "guthaben", "laden", "neubauen",
+                    "neuladen"));
+        } else if (name.equals("versteckerladmin") && args.length == 2
+                && (args[0].equalsIgnoreCase("guthaben") || args[0].equalsIgnoreCase("laden"))) {
+            Bukkit.getOnlinePlayers().forEach(p -> options.add(p.getName()));
         } else if ((name.equals("karte") || name.equals("zuschauen")) && args.length == 1
                 || name.equals("versteckerladmin") && args.length == 2 && args[0].equalsIgnoreCase("start")) {
             for (MapType m : MapType.values()) {

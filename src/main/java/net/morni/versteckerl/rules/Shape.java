@@ -9,6 +9,10 @@ import java.util.Locale;
  *
  * <p>{@code kinds}: Blocknamen, die als „dieselbe Art“ zählen (für den falschen Treffer: Wer ein echtes Fass schlägt,
  * obwohl Fässer eine Gestalt der Karte sind, verliert Leben). Ein {@code *} am Ende heißt „beginnt mit“.
+ *
+ * <p>{@code tier}: die ersten fünfzehn hat jeder ({@link Tier#FREE}); die übrigen schaltet man im Kramerladen der
+ * Gendarmerie frei. Auf welchen Karten es eine Gestalt gibt, legt {@code MapType} fest – nur dort, wo genug echte
+ * Attrappen stehen.
  */
 public enum Shape {
 
@@ -27,18 +31,46 @@ public enum Shape {
     BUECHERREGAL("buecherregal", "bookshelf", "BOOKSHELF", List.of("bookshelf", "chiseled_bookshelf")),
     BANK("bank", "spruce_stairs[facing=south,half=bottom,shape=straight,waterlogged=false]", "SPRUCE_STAIRS",
             List.of("spruce_stairs")),
-    KOMPOSTER("komposter", "composter[level=0]", "COMPOSTER", List.of("composter"));
+    KOMPOSTER("komposter", "composter[level=0]", "COMPOSTER", List.of("composter")),
+
+    // ---------- im Kramerladen freischalten ----------
+    WERKBANK("werkbank", "crafting_table", "CRAFTING_TABLE", List.of("crafting_table"), Tier.COMMON),
+    SCHLEIFSTEIN("schleifstein", "grindstone[face=floor,facing=north]", "GRINDSTONE", List.of("grindstone"),
+            Tier.COMMON),
+    WEBSTUHL("webstuhl", "loom[facing=south]", "LOOM", List.of("loom"), Tier.COMMON),
+    BUSCH("busch", "flowering_azalea", "FLOWERING_AZALEA", List.of("azalea", "flowering_azalea"), Tier.RARE),
+    LESEPULT("lesepult", "lectern[facing=south,has_book=false,powered=false]", "LECTERN", List.of("lectern"),
+            Tier.RARE),
+    KUCHEN("kuchen", "cake[bites=0]", "CAKE", List.of("cake", "candle_cake"), Tier.RARE),
+    KUERBISLATERNE("kuerbislaterne", "jack_o_lantern[facing=south]", "JACK_O_LANTERN",
+            List.of("pumpkin", "carved_pumpkin", "jack_o_lantern"), Tier.EPIC),
+    FESTTAGSKUCHEN("festtagskuchen", "candle_cake[lit=true]", "CANDLE", List.of("cake", "candle_cake"), Tier.EPIC);
 
     private final String id;
     private final String block;
     private final String icon;
     private final List<String> kinds;
+    private final Tier tier;
 
     Shape(String id, String block, String icon, List<String> kinds) {
+        this(id, block, icon, kinds, Tier.FREE);
+    }
+
+    Shape(String id, String block, String icon, List<String> kinds, Tier tier) {
         this.id = id;
         this.block = block;
         this.icon = icon;
         this.kinds = kinds;
+        this.tier = tier;
+    }
+
+    /** Frei für alle oder im Kramerladen freizuschalten (und wie selten). */
+    public Tier tier() {
+        return tier;
+    }
+
+    public boolean free() {
+        return tier == Tier.FREE;
     }
 
     public String id() {

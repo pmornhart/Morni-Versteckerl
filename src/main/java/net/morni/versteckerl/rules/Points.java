@@ -1,8 +1,9 @@
 package net.morni.versteckerl.rules;
 
 /**
- * Punkte einer Runde. Gendarmen: Treffer und Funde; Versteckte: jede halbe Minute unentdeckt, Pfiffe (je später, desto
- * mehr) und das Überleben bis zum Schluss. Wer gewinnt, bekommt noch etwas obendrauf.
+ * Vorgaben für die Punkte einer Runde (die gültigen Werte kommen aus der config.yml, siehe {@link Rewards}). Gendarmen:
+ * Treffer und Funde; Versteckte: jede halbe Minute unentdeckt, Pfiffe (je später, desto mehr) und das Überleben bis zum
+ * Schluss. Wer gewinnt, bekommt noch etwas obendrauf.
  */
 public final class Points {
 

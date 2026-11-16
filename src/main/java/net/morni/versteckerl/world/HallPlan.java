@@ -7,7 +7,8 @@ import java.util.Random;
 /**
  * Die Gendarmerie: der Wartebereich auf einer kleinen Alm-Insel. Im Norden das Gendarmeriehaus mit grünen
  * Fensterläden, davor der gepflasterte Hof mit der Anschlagtafel (Steckbriefe = Bestenliste) und drei Schaukästen,
- * einer je Karte, mit den Gestalten der Karte als kleiner Auslage. Ringsum Bänke, Laternen, Brunnen, Fichten.
+ * einer je Karte, mit den Gestalten der Karte als kleiner Auslage. In der Ecke neben dem Haus der Kramerstand mit
+ * rot-weißer Markise, wo Krämer Wastl hinter der Theke steht. Ringsum Bänke, Laternen, Brunnen, Fichten.
  * Eigener Entwurf.
  */
 public final class HallPlan {
@@ -22,6 +23,13 @@ public final class HallPlan {
     public static final int[][] STANDS = {{-8, -1}, {0, -1}, {8, -1}};
     /** Anschlagtafel mit den Steckbriefen (Bestenliste), an der Westseite des Hofs, Blick nach Osten. */
     public static final int[] BOARD = {-11, 4};
+    /** Krämer Wastl hinter der Theke des Kramerstands (Blockmitte x, z) – schaut nach Westen auf den Hof. */
+    public static final double[] KRAEMER = {11.5, -5.5};
+    public static final float KRAEMER_YAW = 90f;
+    /** Theke des Kramerstands: x und z von … bis. */
+    public static final int COUNTER_X = 10;
+    public static final int COUNTER_Z1 = -7;
+    public static final int COUNTER_Z2 = -4;
 
     private static final int COURT_X = 13;
     private static final int COURT_Z1 = -9;
@@ -38,6 +46,7 @@ public final class HallPlan {
         building(p, r);
         board(p);
         stands(p);
+        kramer(p);
         maypole(p);
         fountain(p);
         benches(p);
@@ -149,7 +158,7 @@ public final class HallPlan {
         for (int i = 0; i < maps.length && i < STANDS.length; i++) {
             int x = STANDS[i][0];
             int z = STANDS[i][1];
-            List<net.morni.versteckerl.rules.Shape> shapes = maps[i].shapes();
+            List<net.morni.versteckerl.rules.Shape> shapes = maps[i].freeShapes();
             for (int dx = -1; dx <= 1; dx++) {
                 p.set(x + dx, 0, z, "chiseled_stone_bricks");
                 p.set(x + dx, 1, z, "polished_andesite");
@@ -242,8 +251,45 @@ public final class HallPlan {
         p.set(COURT_X - 1, 2, -1, "potted_red_tulip");
         p.set(-COURT_X + 1, 1, 11, "hay_block[axis=y]");
         p.set(-COURT_X + 2, 1, 11, "barrel[facing=up,open=false]");
-        p.set(12, 1, -6, "barrel[facing=up,open=false]");
-        p.set(11, 1, -7, "pumpkin");
+    }
+
+    /**
+     * Kramerstand in der Nordost-Ecke des Hofs: Theke mit Ladenglocke, Kuchen und Blumen, dahinter Regal aus Fässern
+     * mit Waren, Pfosten mit rot-weißer Markise, daneben ein Notenblock (für die Pfiff-Klänge) und Kisten.
+     */
+    private static void kramer(Plan p) {
+        for (int z = COUNTER_Z1; z <= COUNTER_Z2; z++) {
+            p.set(COUNTER_X, 1, z, "spruce_slab[type=top]");
+        }
+        p.set(COUNTER_X, 2, COUNTER_Z1, "potted_red_tulip");
+        p.set(COUNTER_X, 2, COUNTER_Z1 + 1, "cake[bites=0]");
+        p.set(COUNTER_X, 2, COUNTER_Z1 + 2, "bell[attachment=floor,facing=west,powered=false]");
+        p.set(COUNTER_X, 2, COUNTER_Z2, "lantern[hanging=false,waterlogged=false]");
+        // Regal hinter dem Krämer: Fässer und Waren
+        for (int z = COUNTER_Z1; z <= COUNTER_Z2; z++) {
+            p.set(12, 1, z, "barrel[facing=west,open=false]");
+            p.set(12, 2, z, z % 2 == 0 ? "bookshelf" : "barrel[facing=west,open=false]");
+            p.set(12, 3, z, z % 2 == 0 ? "potted_cornflower" : "potted_orange_tulip");
+        }
+        // Pfosten und Markise
+        for (int[] post : new int[][] {{9, -8}, {9, -3}, {12, -8}, {12, -3}}) {
+            for (int y = 1; y <= 3; y++) {
+                p.set(post[0], y, post[1], "spruce_fence");
+            }
+        }
+        for (int z = -8; z <= -3; z++) {
+            for (int x = 9; x <= 12; x++) {
+                p.set(x, 4, z, Math.floorMod(z, 2) == 0 ? "red_wool" : "white_wool");
+            }
+            p.set(8, 4, z, Math.floorMod(z, 2) == 0 ? "red_carpet" : "white_carpet");
+        }
+        // Daneben: Notenblock mit Laterne (Pfiff-Klänge), Kisten mit Kürbis und Heu
+        p.set(9, 1, -9, "note_block");
+        p.set(9, 2, -9, "lantern[hanging=false,waterlogged=false]");
+        p.set(11, 1, -9, "barrel[facing=up,open=false]");
+        p.set(11, 2, -9, "pumpkin");
+        p.set(12, 1, -9, "hay_block[axis=y]");
+        p.set(12, 1, -2, "potted_poppy");
     }
 
     private static void trees(Plan p, Random r) {

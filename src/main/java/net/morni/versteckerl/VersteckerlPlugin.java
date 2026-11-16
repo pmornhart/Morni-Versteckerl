@@ -6,9 +6,12 @@ import net.morni.versteckerl.data.Store;
 import net.morni.versteckerl.game.Game;
 import net.morni.versteckerl.game.Games;
 import net.morni.versteckerl.hall.Hall;
+import net.morni.versteckerl.hall.Kraemer;
+import net.morni.versteckerl.hall.Shop;
 import net.morni.versteckerl.listen.GameListener;
 import net.morni.versteckerl.listen.GuardListener;
 import net.morni.versteckerl.listen.PlayerListener;
+import net.morni.versteckerl.menu.Menu;
 import net.morni.versteckerl.menu.MenuListener;
 import net.morni.versteckerl.net.Network;
 import net.morni.versteckerl.world.Construction;
@@ -33,8 +36,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 /**
  * Morni Versteckerl: Verstecken mit Verwandlung. Die Versteckten werden zu einem Gegenstand der Karte, die
- * Dorfgendarmen suchen sie. Drei Karten (Dorfplatz, Wirtshaus, Heustadel). Spricht mit dem Netzwerk morni.net, wenn
- * es da ist, und läuft sonst allein.
+ * Dorfgendarmen suchen sie. Drei Karten (Dorfplatz, Wirtshaus, Heustadel). Punkte aus den Runden kommen aufs
+ * Guthaben; damit kauft man im Kramerladen der Gendarmerie Gestalten, Pfiff-Klänge, Effekte und Titel. Spricht mit dem
+ * Netzwerk morni.net, wenn es da ist, und läuft sonst allein.
  */
 public final class VersteckerlPlugin extends JavaPlugin {
 
@@ -43,6 +47,7 @@ public final class VersteckerlPlugin extends JavaPlugin {
     private static final long LANGUAGE_CHECK = 40L;
     private static final long STATE_REFRESH = 20L * 60;
     private static final long BOARD_REFRESH = 20L * 30;
+    private static final long TRAIL_EVERY = 3L;
     private static VersteckerlPlugin instance;
 
     private Settings settings;
@@ -54,6 +59,8 @@ public final class VersteckerlPlugin extends JavaPlugin {
     private Hall hall;
     private Games games;
     private Boards boards;
+    private Shop shop;
+    private Kraemer kraemer;
     private volatile boolean ready;
     private boolean stateQueued;
     private String lastState = "";
@@ -78,6 +85,7 @@ public final class VersteckerlPlugin extends JavaPlugin {
         board = loadBoard();
         world = createWorld(settings.world());
         Game.cleanStray(world);
+        shop = new Shop(this);
         boards = new Boards(this);
         hall = new Hall(this);
         games = new Games(this);
@@ -88,8 +96,8 @@ public final class VersteckerlPlugin extends JavaPlugin {
         pm.registerEvents(new GameListener(this), this);
         pm.registerEvents(new GuardListener(this), this);
         Commands commands = new Commands(this);
-        for (String name : List.of("versteckerladmin", "karte", "bereit", "gestalt", "zuschauen", "verlassen", "stats",
-                "top")) {
+        for (String name : List.of("versteckerladmin", "karte", "bereit", "gestalt", "zuschauen", "verlassen", "laden",
+                "stats", "top")) {
             PluginCommand c = getCommand(name);
             if (c != null) {
                 c.setExecutor(commands);
@@ -104,13 +112,18 @@ public final class VersteckerlPlugin extends JavaPlugin {
             getLogger().info("Versteckerl ist bereit: " + MapType.values().length + " Karten.");
         });
         boards.spawnHall();
+        kraemer = new Kraemer(this);
+        kraemer.spawn();
 
         var scheduler = getServer().getScheduler();
         scheduler.runTaskTimer(this, games::tick, 1L, 1L);
         scheduler.runTaskTimer(this, () -> {
             hall.tick();
             boards.hallAll();
+            kraemer.tick();
+            refreshMenus();
         }, SECOND, SECOND);
+        scheduler.runTaskTimer(this, hall::trails, TRAIL_EVERY, TRAIL_EVERY);
         scheduler.runTaskTimer(this, this::checkLanguages, LANGUAGE_CHECK, LANGUAGE_CHECK);
         scheduler.runTaskTimer(this, () -> reportState(true), STATE_REFRESH, STATE_REFRESH);
         scheduler.runTaskTimer(this, boards::refreshHall, BOARD_REFRESH, BOARD_REFRESH);
@@ -129,6 +142,9 @@ public final class VersteckerlPlugin extends JavaPlugin {
         }
         if (boards != null) {
             boards.removeHall();
+        }
+        if (kraemer != null) {
+            kraemer.remove();
         }
         Holo.removeAll();
         if (store != null) {
@@ -226,6 +242,15 @@ public final class VersteckerlPlugin extends JavaPlugin {
         lastLang.remove(uuid);
     }
 
+    /** Offene Menüs (Kramerladen, Kramerkiste) jede Sekunde neu zeichnen – Guthaben, Punkte, Abklingzeiten. */
+    private void refreshMenus() {
+        for (Player p : getServer().getOnlinePlayers()) {
+            if (p.getOpenInventory().getTopInventory().getHolder(false) instanceof Menu menu) {
+                menu.refresh();
+            }
+        }
+    }
+
     // ---------- Zugriff ----------
 
     public Settings settings() {
@@ -258,6 +283,10 @@ public final class VersteckerlPlugin extends JavaPlugin {
 
     public Boards boards() {
         return boards;
+    }
+
+    public Shop shop() {
+        return shop;
     }
 
     public boolean ready() {
@@ -314,6 +343,7 @@ public final class VersteckerlPlugin extends JavaPlugin {
             done.run();
         });
         boards.spawnHall();
+        kraemer.spawn();
         for (Player p : getServer().getOnlinePlayers()) {
             hall.enter(p);
         }
@@ -322,5 +352,10 @@ public final class VersteckerlPlugin extends JavaPlugin {
     void reloadSettings() {
         reloadConfig();
         settings = Settings.load(getConfig());
+        for (Player p : getServer().getOnlinePlayers()) {
+            if (hall.inHall(p.getUniqueId())) {
+                hall.items(p, lang(p));
+            }
+        }
     }
 }

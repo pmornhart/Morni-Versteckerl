@@ -6,6 +6,7 @@ import net.morni.versteckerl.VersteckerlPlugin;
 import net.morni.versteckerl.data.Leaderboard;
 import net.morni.versteckerl.data.PlayerData;
 import net.morni.versteckerl.game.Game;
+import net.morni.versteckerl.game.Member;
 import net.morni.versteckerl.menu.Menu;
 import net.morni.versteckerl.rules.Shape;
 import net.morni.versteckerl.world.MapType;
@@ -21,7 +22,7 @@ import org.bukkit.entity.Player;
 public final class HallMenus {
 
     private static final int[] MAP_SLOTS = {11, 13, 15};
-    private static final int[] BOARD_SLOTS = {14, 15, 16};
+    private static final int[] BOARD_SLOTS = {13, 14, 15, 16};
 
     private HallMenus() {
     }
@@ -34,10 +35,22 @@ public final class HallMenus {
         };
     }
 
-    /** Gestalten einer Karte als Text („Heuballen, Fass, …“). */
+    /** Gestalten einer Karte als Text („Heuballen, Fass, …“), dahinter die aus dem Kramerladen. */
     public static String shapeList(String lang, MapType m) {
         List<String> out = new ArrayList<>();
-        for (Shape s : m.shapes()) {
+        for (Shape s : m.freeShapes()) {
+            out.add(Texts.plain(lang, "shape." + s.id()));
+        }
+        String list = String.join(", ", out);
+        int extra = m.shopShapes().size();
+        return extra == 0 ? list : list + Texts.plain(lang, "menu.vote.shop-shapes", Placeholder.unparsed("n",
+                String.valueOf(extra)));
+    }
+
+    /** Gestalten aus dem Kramerladen auf einer Karte („Werkbank, Busch …“). */
+    public static String shopShapeList(String lang, MapType m) {
+        List<String> out = new ArrayList<>();
+        for (Shape s : m.shopShapes()) {
             out.add(Texts.plain(lang, "shape." + s.id()));
         }
         return String.join(", ", out);
@@ -52,12 +65,15 @@ public final class HallMenus {
             Game running = plugin.games().on(m);
             List<Component> lore = new ArrayList<>(Texts.lines(lang, "map." + m.id() + ".desc"));
             lore.add(Texts.text(lang, "menu.vote.shapes", Placeholder.unparsed("list", shapeList(lang, m))));
+            if (!m.shopShapes().isEmpty()) {
+                lore.add(Texts.text(lang, "menu.vote.shop", Placeholder.unparsed("list", shopShapeList(lang, m))));
+            }
             lore.add(Texts.text(lang, "menu.vote.votes", Placeholder.unparsed("n",
                     String.valueOf(plugin.hall().votes().count(m)))));
             boolean mine = plugin.hall().votes().voteOf(p.getUniqueId()) == m;
             if (running != null) {
                 lore.add(Texts.text(lang, "menu.vote.busy", Placeholder.unparsed("n",
-                        String.valueOf(running.count(net.morni.versteckerl.game.Member.Role.HIDER)))));
+                        String.valueOf(running.count(Member.Role.HIDER)))));
             } else {
                 lore.add(Texts.text(lang, mine ? "menu.vote.mine" : "menu.vote.click"));
             }
@@ -80,9 +96,12 @@ public final class HallMenus {
         String lang = plugin.lang(p);
         Menu menu = new Menu(3, Texts.text(lang, "menu.stats.title"));
         PlayerData d = plugin.data(p);
-        menu.set(11, Items.named(Material.PLAYER_HEAD, 1, Texts.text(lang, "menu.stats.me"), statLines(lang, d)), null);
+        List<Component> me = new ArrayList<>(statLines(lang, d));
+        me.addAll(walletLines(plugin, lang, d));
+        menu.set(10, Items.named(Material.PLAYER_HEAD, 1, Texts.text(lang, "menu.stats.me"), me), null);
+        menu.set(11, ShopMenus.balance(plugin, lang, d), q -> ShopMenus.open(plugin, q));
         Leaderboard.Board[] boards = Leaderboard.Board.values();
-        Material[] icons = {Material.GOLD_INGOT, Material.STICK, Material.BARREL};
+        Material[] icons = {Material.GOLD_INGOT, Material.EMERALD, Material.STICK, Material.BARREL};
         for (int i = 0; i < boards.length; i++) {
             menu.set(BOARD_SLOTS[i], Items.named(icons[i], 1, Texts.text(lang, "board." + boards[i].id()),
                     rows(plugin, lang, boards[i], Leaderboard.SIZE)), null);
@@ -104,6 +123,20 @@ public final class HallMenus {
                     Placeholder.unparsed("name", e.name()), Placeholder.unparsed("n", String.valueOf(e.value()))));
         }
         return lore;
+    }
+
+    /** Guthaben, Serie und Titel für den Steckbrief. */
+    public static List<Component> walletLines(VersteckerlPlugin plugin, String lang, PlayerData d) {
+        List<Component> out = new ArrayList<>(Texts.lines(lang, "menu.stats.wallet",
+                Placeholder.unparsed("balance", String.valueOf(d.balance())),
+                Placeholder.unparsed("streak", String.valueOf(d.streak())),
+                Placeholder.unparsed("best", String.valueOf(d.bestStreak())),
+                Placeholder.unparsed("unlocks", String.valueOf(d.owned().size()))));
+        String title = plugin.shop().title(d, lang);
+        if (!title.isEmpty()) {
+            out.add(Texts.text(lang, "menu.stats.title-line", Placeholder.unparsed("title", title)));
+        }
+        return out;
     }
 
     public static List<Component> statLines(String lang, PlayerData d) {

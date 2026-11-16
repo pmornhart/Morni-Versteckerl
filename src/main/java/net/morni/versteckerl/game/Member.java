@@ -1,9 +1,16 @@
 package net.morni.versteckerl.game;
 
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.UUID;
+import net.morni.versteckerl.rules.Helps;
 import org.bukkit.Location;
 
-/** Wer in einer Runde mitspielt: Rolle, Punkte und der Zustand als Versteckter bzw. Gendarm. */
+/**
+ * Wer in einer Runde mitspielt: Rolle, Punkte und der Zustand als Versteckter bzw. Gendarm. {@code points} sind die in
+ * der Runde gesammelten Punkte (Rangliste, beste Runde); davon geht ab, was man im Rundenladen ausgibt
+ * ({@code spent}) – der Rest kommt am Ende aufs Guthaben.
+ */
 public final class Member {
 
     public enum Role {
@@ -21,6 +28,14 @@ public final class Member {
     int hits;
     int whistles;
     boolean survived;
+    /** Im Rundenladen ausgegeben. */
+    int spent;
+    int helpsBought;
+    final Map<Helps.Help, Integer> helpUses = new EnumMap<>(Helps.Help.class);
+    /** Tick, ab dem eine Hilfe wieder geht. */
+    final Map<Helps.Help, Long> helpReady = new EnumMap<>(Helps.Help.class);
+    /** Zuletzt bewegt (Tick) – die Laterne der Gendarmen zeigt, wer sich gerade bewegt. */
+    long lastMoveTick = Long.MIN_VALUE / 2;
 
     // ---------- als Versteckter ----------
     Disguise disguise;
@@ -45,6 +60,7 @@ public final class Member {
     long lastSwing = -100;
     long lastAttack = -100;
     long stunnedUntil;
+    long lanternUntil;
 
     Member(UUID uuid, String name, Role role) {
         this.uuid = uuid;
@@ -71,6 +87,19 @@ public final class Member {
 
     public int points() {
         return points;
+    }
+
+    /** Punkte der Runde, die noch übrig sind (gesammelt minus im Rundenladen ausgegeben). */
+    public int available() {
+        return Math.max(0, points - spent);
+    }
+
+    public int spent() {
+        return spent;
+    }
+
+    int uses(Helps.Help h) {
+        return helpUses.getOrDefault(h, 0);
     }
 
     public int finds() {

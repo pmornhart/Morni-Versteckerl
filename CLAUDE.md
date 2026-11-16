@@ -23,8 +23,17 @@
 - Versteckerl muss auch ohne Netzwerk laufen (`softdepend: [MorniNet]`; Sprache dann aus dem Client).
 - Paper 26.x, Java 25. Der Code muss auch gegen Paper 26.1 übersetzen (`mvn -Ppaper-26.1 compile`, läuft in der CI).
   Blocknamen von 26.x benutzen (z. B. `iron_chain`, nicht `chain`; `short_grass`, nicht `grass`) – `MapPlanTest` prüft das.
-- Regeln (Rollen, Punkte, Pfiff, Sieg, Abstimmung, Gruppen, Treffer-Rechnung) gehören in `rules/`, Daten in `data/` –
-  ohne Server, mit Tests. Werte dort nur zusammen mit den Tests ändern.
+- Regeln (Rollen, Punkte, Pfiff, Sieg, Abstimmung, Gruppen, Treffer-Rechnung, Abrechnung, Rundenladen, Katalog des
+  Kramerladens) gehören in `rules/`, Daten (Guthaben, Kauf) in `data/` – ohne Server, mit Tests. Werte dort nur
+  zusammen mit den Tests ändern.
+- **Nichts für echtes Geld**: Punkte und Guthaben gibt es nur im Spiel. Kein Pay-to-win – was im Laden spielerisch
+  hilft, ist begrenzt (Preis aus der Runde, Abklingzeit, je Runde) und hat ein Gegenmittel der anderen Seite; alles
+  andere ist nur zum Anschauen und Anhören. Gekauft wird nur über `PlayerData.buy` (prüfen, abbuchen, freischalten in
+  einem Schritt, Guthaben nie negativ).
+- Neue Gestalt für den Kramerladen: in `Shape` (mit Seltenheit), in die Liste der passenden Karten (`MapType`) nur mit
+  mindestens 6 genau gleich aussehenden Attrappen im Bauplan (`MapPlanTest`), Texte `shape.<id>` und `.hint`,
+  `Construction.VERSION` erhöhen. Neue Stücke (Klänge, Effekte, Titel) in `Catalog`, Klang/Optik in `game/Flair`,
+  Texte `shop.<art>.<id>` und `.desc`, Preis und an/aus in der mitgelieferten `config.yml` (`SettingsTest` prüft das).
 - Baupläne (`world/`) arbeiten nur mit Blocknamen als Text – so prüft `MapPlanTest` ohne Server, dass jede Karte genug
   Attrappen jeder Gestalt hat, Startpunkte frei sind und die Gendarmenstube dicht ist.
 - Ändern sich Gendarmerie oder Karten: `Construction.VERSION` erhöhen – dann baut der Server beim nächsten Start neu.

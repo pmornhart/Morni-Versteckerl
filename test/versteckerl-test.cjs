@@ -6,6 +6,9 @@
  * Party-Nachzügler), Dora (deutsch), Emil (schaut zu). Sprache und Party kommen vom Test-Netzwerk (test/fake-network),
  * das auch Statistik, Zustand und „zur Lobby“ in calls.log mitschreibt.
  *
+ * Mit „--nach-neustart“ (zweiter Teil, nach einem Neustart des Servers): sind Guthaben, Freischaltungen und
+ * Ausrüstung noch da?
+ *
  * Verfasst mit Claude 🤖
  */
 const crypto = require('node:crypto');
@@ -15,10 +18,13 @@ const mineflayer = require('mineflayer');
 const { Vec3 } = require('vec3');
 const { rcon } = require('./rcon.cjs');
 
-const [HOST = '127.0.0.1', PORT = '25820', RCON = '127.0.0.1:25920', PASS_FILE, SERVER] = process.argv.slice(2);
+const [HOST = '127.0.0.1', PORT = '25820', RCON = '127.0.0.1:25920', PASS_FILE, SERVER, PHASE = ''] = process.argv.slice(2);
+const AFTER_RESTART = PHASE === '--nach-neustart';
 const PASS = fs.readFileSync(PASS_FILE, 'utf8').trim();
 const VERSION = process.env.MC_VERSION ?? '26.1';
 const HALL = { x: 0.5, y: 101, z: 7.5 };
+const KRAEMER = { x: 11.5, y: 101, z: -5.5 };
+const WALLET_FILE = () => path.join(SERVER, 'vk-laden-dora.txt');
 const DORF = 1000;
 const HEU = 3000;
 const FLOOR = 100;
@@ -95,12 +101,17 @@ async function join(name) {
   bot.titles = [];
   bot.subtitles = [];
   bot.sounds = [];
+  bot.scoreLines = [];
   bot.kickReason = null;
   bot.on('messagestr', (m, position) => (position === 'game_info' ? bot.bars : bot.chats).push(m));
   bot._client.on('action_bar', (p) => bot.bars.push(plain(p.text)));
   bot._client.on('set_title_text', (p) => bot.titles.push(plain(p.text)));
   bot._client.on('set_title_subtitle', (p) => bot.subtitles.push(plain(p.text)));
   bot.on('soundEffectHeard', (n) => bot.sounds.push(n));
+  // Die Leiste rechts hat eigene Zeilennamen (mineflayer merkt sie sich nicht) – direkt aus dem Paket lesen.
+  bot._client.on('scoreboard_score', (p) => {
+    if (p.display_name != null) bot.scoreLines.push(plain(p.display_name));
+  });
   bot.on('kicked', (r) => {
     bot.kickReason = plain(r);
   });
@@ -144,10 +155,11 @@ async function status() {
     for (const part of line.split(' ')) {
       const [k, v] = part.split('=');
       if (/^[A-Z]/.test(k)) {
-        const [role, shape, solid, lives, points, finds, whistles, cell, online] = v.split(':');
+        const [role, shape, solid, lives, points, finds, whistles, cell, online, spent] = v.split(':');
         s.members[k] = {
           role, shape, solid: solid === '1', lives: Number(lives), points: Number(points), finds: Number(finds),
           whistles: Number(whistles), cell: cell === '-' ? null : cell.split(',').map(Number), online: online === 'on',
+          spent: Number(spent ?? 0),
         };
       } else {
         s[k] = /^-?\d+$/.test(v) ? Number(v) : v;
@@ -213,6 +225,36 @@ async function countDisplays(x, z, r = 40) {
   return m ? Number(m[1]) : 0;
 }
 
+/** /versteckerladmin laden <name> als Werte: {guthaben, gesamt, serie, frei: [...], aus: {pfiff: 'kuhglocke', …}} */
+async function wallet(name) {
+  const line = String((await cmd(`versteckerladmin laden ${name}`))[0]).replace(/§./g, '').trim();
+  const w = { line };
+  for (const part of line.split(' ')) {
+    const [k, v = ''] = part.split('=');
+    if (k === 'frei') w.frei = v ? v.split(',') : [];
+    else if (k === 'aus') w.aus = Object.fromEntries(v.split(',').map((x) => x.split(':')));
+    else w[k] = /^\d+$/.test(v) ? Number(v) : v;
+  }
+  return w;
+}
+
+const loreOf = (item) => (item?.customLore ?? []).map(plain).join(' | ');
+const windowItem = (bot, re) => {
+  const win = bot.currentWindow;
+  if (!win) return null;
+  return win.slots.find((x, i) => x && i < win.inventoryStart && re.test(plain(x.customName))) ?? null;
+};
+
+/** Im offenen Fenster anklicken und warten, bis sich das Fenster (neu) öffnet. */
+async function clickAndWait(bot, re) {
+  const opened = new Promise((resolve) => {
+    bot.once('windowOpen', resolve);
+    setTimeout(() => resolve(null), 3000);
+  });
+  if (!(await clickNamed(bot, re))) return null;
+  return opened;
+}
+
 async function blockIs(x, y, z, name) {
   const out = String(await cmd(inWorld(`execute if block ${x} ${y} ${z} ${name}`)));
   return /passed/i.test(out);
@@ -222,7 +264,9 @@ async function main() {
   // ------------------------------------------------------------------ Gendarmerie
   await sleep(6000);
   const holos = String(await cmd(inWorld(`execute positioned 0 ${FLOOR + 1} 0 if entity @e[type=text_display,distance=..30]`)));
-  check('Tafeln der Gendarmerie stehen (4 Tafeln × 2 Sprachen)', /: 8\b/.test(holos), holos.trim());
+  check('Tafeln der Gendarmerie stehen (4 Tafeln + Schild des Krämers, je 2 Sprachen)', /: 10\b/.test(holos), holos.trim());
+  const wastl = String(await cmd(inWorld(`execute positioned ${KRAEMER.x} ${KRAEMER.y} ${KRAEMER.z} if entity @e[type=villager,tag=versteckerl_kraemer,distance=..1.5]`)));
+  check('Krämer Wastl steht am Kramerstand', /: 1\b/.test(wastl), wastl.trim());
   const anna = await join('Anna');
   const bert = await join('Bert');
   check('Ankunft in der Gendarmerie', inHall(anna), JSON.stringify(anna.entity.position));
@@ -230,9 +274,12 @@ async function main() {
     slot(anna, 0)?.name === 'compass' && slot(anna, 1)?.name === 'gray_dye' && slot(anna, 4)?.name === 'paper' &&
       slot(anna, 8)?.name === 'red_bed', [0, 1, 4, 8].map((i) => slot(anna, i)?.name).join(','));
   check('Deutsch: „Karte wählen“', plain(slot(anna, 0)?.customName).includes('Karte wählen'), plain(slot(anna, 0)?.customName));
+  check('Schnellleiste: Smaragd = Kramerladen', slot(anna, 2)?.name === 'emerald' &&
+    plain(slot(anna, 2)?.customName).includes('Kramerladen'), plain(slot(anna, 2)?.customName));
   check('Englisch (Sprache vom Netzwerk): „Vote for a map“', plain(slot(bert, 0)?.customName).includes('Vote for a map'),
     plain(slot(bert, 0)?.customName));
   check('Begrüßung und Erklärung im Chat', sees(anna, /Gendarmerie/) && sees(anna, /rastet ein/));
+  check('Hinweis auf den Kramerladen', sees(anna, /Krämer Wastl/) && sees(bert, /Wastl the shopkeeper/));
   check('Leiste rechts (Scoreboard) vorhanden', await waitFor(() => Object.keys(anna.scoreboards ?? {}).length > 0, 3000));
   check('Netzwerk: Zustand „waiting“', calls().some((c) => c.t === 'state' && c.mode === 'versteckerl' && c.state === 'waiting'));
 
@@ -253,7 +300,44 @@ async function main() {
     !anna.bars.some((b) => /Nächste Runde/.test(b)), anna.bars.slice(-1)[0]);
   win = await openWithItem(anna, 4);
   check('Steckbriefe: Statistik-Menü', win && plain(win.title).includes('Steckbriefe'), win && plain(win.title));
+  check('Steckbrief zeigt Guthaben und vier Bestenlisten', /Guthaben: 0/.test(loreOf(win?.slots[10])) &&
+    /Punkte insgesamt/.test(plain(win?.slots[14]?.customName)), `${loreOf(win?.slots[10])} / ${plain(win?.slots[14]?.customName)}`);
   await closeWindow(anna);
+
+  // ------------------------------------------------------------------ Kramerladen (noch ohne Guthaben)
+  win = await openWithItem(anna, 2);
+  check('Smaragd öffnet den Kramerladen', win && plain(win.title) === 'Kramerladen', win && plain(win.title));
+  check('Guthaben oben: 0 ✦', /Guthaben: 0/.test(plain(win?.slots[4]?.customName)), plain(win?.slots[4]?.customName));
+  const kinds = [19, 20, 21, 23, 24, 25].map((i) => plain(win?.slots[i]?.customName));
+  check('Sechs Abteilungen', ['Gestalten', 'Pfiff-Klänge', 'Fund-Effekte', 'Spuren', 'Sieg-Effekte', 'Titel']
+    .every((k, i) => kinds[i] === k), kinds.join(','));
+  check('„So verdienst du Punkte“ mit den Werten', /Fund \+10/.test(loreOf(win?.slots[31])), loreOf(win?.slots[31]));
+  win = await clickAndWait(anna, /^Pfiff-Klänge$/);
+  check('Abteilung Pfiff-Klänge', win && plain(win.title) === 'Kramerladen · Pfiff-Klänge', win && plain(win.title));
+  const bell = windowItem(anna, /^Kuhglocke$/);
+  check('Kuhglocke: selten, laut (+2), 160 ✦, zu teuer', /Selten/.test(loreOf(bell)) && /\+2 Punkte/.test(loreOf(bell)) &&
+    /Preis: 160/.test(loreOf(bell)) && /fehlen noch 160/.test(loreOf(bell)), loreOf(bell));
+  check('Flötenpfiff ist frei und dabei', /Dabei/.test(loreOf(windowItem(anna, /^Flötenpfiff$/))), loreOf(windowItem(anna, /^Flötenpfiff$/)));
+  await clickNamed(anna, /^Kuhglocke$/);
+  check('Zu wenig Guthaben: nichts gekauft', await waitFor(() => sees(anna, /fehlen dir noch 160/), 2000) &&
+    (await wallet('Anna')).frei.length === 0, anna.chats.slice(-1)[0]);
+  await closeWindow(anna);
+  await tp(bert, 'Bert', 9.5, 101, -5.5, -90, 0);
+  const villager = Object.values(bert.entities).find((e) => e.name === 'villager' &&
+    e.position.distanceTo(new Vec3(KRAEMER.x, KRAEMER.y, KRAEMER.z)) < 1.5);
+  const shopOpen = new Promise((resolve) => {
+    bert.once('windowOpen', resolve);
+    setTimeout(() => resolve(null), 4000);
+  });
+  if (villager) {
+    await bert.lookAt(villager.position.offset(0, 1.5, 0), true);
+    bert.activateEntity(villager);
+  }
+  win = await shopOpen;
+  check('Rechtsklick auf Wastl öffnet den Laden (englisch)', win && plain(win.title) === 'General store',
+    `${Boolean(villager)} ${win && plain(win.title)}`);
+  await closeWindow(bert);
+  await tp(bert, 'Bert', HALL.x, HALL.y, HALL.z, 180, 0);
 
   // ------------------------------------------------------------------ Runde 1: Dorfplatz
   const carl = await join('Carl');
@@ -380,6 +464,34 @@ async function main() {
   check('Die Gendarmen hören den Pfiff', await waitFor(() => dora.sounds.some((n) => /note_block/.test(n)), 2000), dora.sounds.join(','));
   await useItem(anna, 1);
   check('Pfiff hat eine Abklingzeit', sawBar(anna, /Gleich wieder/), anna.bars.slice(-1)[0]);
+  // Mut: Gendarm steht ganz nah → Extrapunkte
+  await tp(dora, 'Dora', A.x + 2.5, FLOOR + 1, A.z + 0.5, 90, 0);
+  await sleep(3200);
+  let before = (await status()).dorfplatz.members.Anna.points;
+  anna.bars.length = 0;
+  await useItem(anna, 1);
+  s = (await status()).dorfplatz;
+  check('Mutiger Pfiff (Gendarm ganz nah): Extrapunkte', s.members.Anna.points - before >= 5 && sawBar(anna, /mutig \+4/),
+    `${before} → ${s.members.Anna.points} ${anna.bars.slice(-1)[0]}`);
+  // Rundenladen: Lockpfiff (Testpreis 1), dann Abklingzeit
+  check('Versteckte haben die Kramerkiste', slot(anna, 3)?.name === 'chest' && plain(slot(anna, 3)?.customName).includes('Kramerkiste'));
+  win = await openWithItem(anna, 3);
+  check('Kramerkiste: Hilfen für die Runde', win && plain(win.title).includes('Kramerkiste') &&
+    ['Lockpfiff', 'Nebelwolke', 'Noch ein Gestaltwechsel'].every((n) => windowItem(anna, new RegExp(`^${n}$`))),
+    win && plain(win.title));
+  before = (await status()).dorfplatz.members.Anna;
+  dora.sounds.length = 0;
+  await clickNamed(anna, /^Lockpfiff$/);
+  s = (await status()).dorfplatz;
+  check('Lockpfiff gekauft (bezahlt mit Rundenpunkten)', s.members.Anna.spent === 1 &&
+    await waitFor(() => sees(anna, /Lockpfiff für 1 Punkte/), 2000), `${JSON.stringify(s.members.Anna)} ${anna.chats.slice(-1)[0]}`);
+  check('Der Lockpfiff ist zu hören', await waitFor(() => dora.sounds.some((n) => /note_block/.test(n)), 2000), dora.sounds.join(','));
+  win = await openWithItem(anna, 3);
+  check('Lockpfiff im Menü: Abklingzeit', /noch \d+ s/.test(loreOf(windowItem(anna, /^Lockpfiff$/))), loreOf(windowItem(anna, /^Lockpfiff$/)));
+  await clickNamed(anna, /^Lockpfiff$/);
+  check('Lockpfiff gleich nochmal: Abklingzeit, nichts abgebucht', await waitFor(() => sees(anna, /geht gleich wieder/), 2000) &&
+    (await status()).dorfplatz.members.Anna.spent === 1, anna.chats.slice(-1)[0]);
+  await closeWindow(anna);
   carl.setControlState('jump', false);
   await sleep(300);
   await useItem(carl, 2);
@@ -393,12 +505,40 @@ async function main() {
   win = await openWithItem(anna, 0);
   check('Ein zweiter Wechsel geht nicht', !win && sees(anna, /schon gewechselt/));
   await closeWindow(anna);
+  win = await openWithItem(anna, 3);
+  const reopened = new Promise((resolve) => {
+    anna.once('windowOpen', resolve);
+    setTimeout(() => resolve(null), 3000);
+  });
+  await clickNamed(anna, /^Noch ein Gestaltwechsel$/);
+  win = await reopened;
+  check('Rundenladen: noch ein Gestaltwechsel öffnet das Menü', win && plain(win.title).includes('Gestalt wechseln'),
+    `${win && plain(win.title)} ${anna.chats.slice(-1)[0]}`);
+  await clickNamed(anna, /^Fass$/);
+  s = (await status()).dorfplatz;
+  check('… und Anna ist wieder ein Fass (auch der echte Block)', s.members.Anna.shape === 'fass' && s.members.Anna.spent === 3 &&
+    (await blockIs(A.x, A.y, A.z, 'barrel')), JSON.stringify(s.members.Anna));
+  await closeWindow(anna);
 
   // Spürnase
   await useItem(dora, 1);
   check('Spürnase: Spur zum nächsten Versteckten', sees(dora, /Spürnase zuckt/), dora.chats.slice(-1)[0]);
   await useItem(dora, 1);
   check('Spürnase nur einmal pro Runde', sees(dora, /schon benutzt/));
+  check('Gendarmen haben die Kramerkiste', slot(dora, 2)?.name === 'chest');
+  win = await openWithItem(dora, 2);
+  check('Kramerkiste der Gendarmen: Laterne, Spürnase', win && windowItem(dora, /^Laterne$/) &&
+    windowItem(dora, /^Noch eine Spürnase$/) && !windowItem(dora, /^Lockpfiff$/), win && plain(win.title));
+  dora.chats.length = 0;
+  await clickNamed(dora, /^Noch eine Spürnase$/);
+  check('Rundenladen: noch eine Spürnase', await waitFor(() => sees(dora, /Noch eine Spürnase für 3 Punkte/) &&
+    sees(dora, /Spürnase zuckt/), 2000), dora.chats.join(' | '));
+  win = await openWithItem(dora, 2);
+  await clickNamed(dora, /^Laterne$/);
+  s = (await status()).dorfplatz;
+  check('Rundenladen: Laterne leuchtet', await waitFor(() => sawBar(dora, /Laterne leuchtet/), 2000) && s.members.Dora.spent === 5,
+    `${JSON.stringify(s.members.Dora)} ${dora.bars.slice(-1)[0]}`);
+  await closeWindow(dora);
 
   // Carl wird gefunden, bevor er einrastet (Treffer auf die mitlaufende Gestalt)
   carl.setControlState('jump', true);
@@ -448,12 +588,79 @@ async function main() {
   `unsichtbar=${hasEffect(anna, INVISIBILITY)} dora-sieht-anna=${Object.values(dora.entities).some((e) => e.username === 'Anna')}`);
   check('Spielerdatei mit Sieg', /siege-versteckt: 1/.test(readFile(playerFile('Anna'))) &&
     /gefunden: 2/.test(readFile(playerFile('Dora'))), readFile(playerFile('Anna')).replace(/\n/g, ' '));
-  check('Steckbriefe (Bestenliste) gespeichert', /funde:[\s\S]*Dora/.test(readFile(path.join(SERVER, 'plugins/MorniVersteckerl/bestenliste.yml'))));
+  check('Steckbriefe (Bestenliste) gespeichert', /funde:[\s\S]*Dora/.test(readFile(path.join(SERVER, 'plugins/MorniVersteckerl/bestenliste.yml'))) &&
+    /gesamt:[\s\S]*Anna/.test(readFile(path.join(SERVER, 'plugins/MorniVersteckerl/bestenliste.yml'))));
+  st = statsOf('Anna').at(-1);
+  check('Abrechnung für Anna: Runde, Ausgaben, erster Sieg heute, Guthaben', sees(anna, /Abrechnung/) &&
+    sees(anna, /für Hilfen ausgegeben/) && sees(anna, /erster Sieg heute/) && sees(anna, /aufs Guthaben · jetzt \d+ ✦/),
+    anna.chats.filter((c) => /Abrechnung|\+\d+|−\d+|= \d+/.test(c)).join(' | '));
+  const annaW = await wallet('Anna');
+  check('Guthaben = Rest der Runde + Tagesbonus', annaW.guthaben === st.add.points - 3 + 25 &&
+    st.add.earned === annaW.guthaben && st.add.bonus === 25 && st.add.helps === 2 && annaW.serie === 1,
+    `${annaW.line} ${JSON.stringify(st.add)}`);
+  check('Punkte insgesamt = Runde + Bonus (Ausgaben ziehen nichts ab)', annaW.gesamt === st.add.points + 25, annaW.line);
+  check('Spielerdatei: guthaben, serie, tagesbonus', /guthaben: \d+/.test(readFile(playerFile('Anna'))) &&
+    /tagesbonus: '?20\d\d-\d\d-\d\d/.test(readFile(playerFile('Anna'))), readFile(playerFile('Anna')).replace(/\n/g, ' '));
+  check('Dora verlor: Abrechnung ohne Tagesbonus', sees(dora, /Abrechnung/) && !sees(dora, /erster Sieg heute/) &&
+    (await wallet('Dora')).serie === 0, dora.chats.filter((c) => /Abrechnung|Guthaben/.test(c)).join(' | '));
+  check('Leiste in der Gendarmerie zeigt das Guthaben', await waitFor(() => anna.scoreLines.some((l) =>
+    new RegExp(`Guthaben: ${annaW.guthaben} ✦`).test(l)), 3000), anna.scoreLines.filter((l) => /Guthaben/.test(l)).slice(-1)[0]);
 
   // ------------------------------------------------------------------ Runde 2: Heustadel – Gendarmen gewinnen
   clear(anna, bert, carl, dora);
   carl.quit();
   await sleep(1000);
+  // ------------------------------------------------------------------ Kramerladen: kaufen und ausrüsten
+  await cmd('versteckerladmin guthaben Dora 1000');
+  win = await openWithItem(dora, 2);
+  check('Dora hat 1000 ✦', /Guthaben: 1000/.test(plain(win?.slots[4]?.customName)), plain(win?.slots[4]?.customName));
+  win = await clickAndWait(dora, /^Gestalten$/);
+  const bench = windowItem(dora, /^Werkbank$/);
+  check('Gestalten im Laden: Werkbank (gewöhnlich, 150 ✦, Dorfplatz/Wirtshaus/Heustadel)', /Gewöhnlich/.test(loreOf(bench)) &&
+    /Preis: 150/.test(loreOf(bench)) && /Heustadel/.test(loreOf(bench)), loreOf(bench));
+  dora.chats.length = 0;
+  await clickNamed(dora, /^Werkbank$/);
+  check('Erster Klick fragt nach', await waitFor(() => sees(dora, /Nochmal klicken zum Kaufen/), 2000) &&
+    (await wallet('Dora')).guthaben === 1000 && /Nochmal klicken/.test(loreOf(windowItem(dora, /^Werkbank$/))),
+    dora.chats.slice(-1)[0]);
+  await clickNamed(dora, /^Werkbank$/);
+  let doraW = await wallet('Dora');
+  check('Zweiter Klick kauft: Werkbank für 150 ✦', await waitFor(() => sees(dora, /Gekauft: Werkbank/), 2000) &&
+    doraW.guthaben === 850 && doraW.frei.includes('gestalt:werkbank') && doraW.aus.gestalt === 'werkbank', doraW.line);
+  check('Werkbank im Laden: Lieblingsgestalt', /Lieblingsgestalt/.test(loreOf(windowItem(dora, /^Werkbank$/))),
+    loreOf(windowItem(dora, /^Werkbank$/)));
+  await clickNamed(dora, /^Werkbank$/);
+  check('Werkbank nochmal: nichts abgebucht (nur Lieblingsgestalt aus)', (await wallet('Dora')).guthaben === 850 &&
+    sees(dora, /Keine Lieblingsgestalt mehr/), dora.chats.slice(-1)[0]);
+  await clickNamed(dora, /^Werkbank$/);
+  check('Werkbank wieder als Lieblingsgestalt', (await wallet('Dora')).aus.gestalt === 'werkbank');
+  win = await clickAndWait(dora, /Zurück/);
+  win = await clickAndWait(dora, /^Pfiff-Klänge$/);
+  await clickNamed(dora, /^Kuhglocke$/);
+  await clickNamed(dora, /^Kuhglocke$/);
+  win = await clickAndWait(dora, /Zurück/);
+  win = await clickAndWait(dora, /^Titel$/);
+  const pfeif = windowItem(dora, /Pfeifkönig/);
+  check('Titel mit Bedingung: Pfeifkönig erst ab 50 Pfiffen', /Erst ab 50 Pfiffen/.test(loreOf(pfeif)) &&
+    /Noch nicht zu haben/.test(loreOf(pfeif)), loreOf(pfeif));
+  await clickNamed(dora, /Dorfkind/);
+  await clickNamed(dora, /Dorfkind/);
+  doraW = await wallet('Dora');
+  check('Kuhglocke (160) und Titel Dorfkind (60) gekauft und ausgerüstet', doraW.guthaben === 630 &&
+    doraW.aus.pfiff === 'kuhglocke' && doraW.aus.titel === 'dorfkind' && doraW.frei.length === 3, doraW.line);
+  await closeWindow(dora);
+  check('Netzwerk: Freischaltungen gemeldet', statsOf('Dora').filter((c) => c.add.unlocks === 1).length === 3 &&
+    statsOf('Dora').filter((c) => c.add.unlocks === 1).reduce((a, c) => a + c.add.spent, 0) === 370);
+  check('Spielerdatei: freigeschaltet und ausgerüstet', /freigeschaltet:[\s\S]*gestalt:werkbank/.test(readFile(playerFile('Dora'))) &&
+    /ausgeruestet:[\s\S]*pfiff: kuhglocke/.test(readFile(playerFile('Dora'))), readFile(playerFile('Dora')).replace(/\n/g, ' '));
+  win = await openWithItem(bert, 2);
+  win = await clickAndWait(bert, /^Whistle sounds$/);
+  const bertBefore = (await wallet('Bert')).guthaben;
+  bert.chats.length = 0;
+  await clickNamed(bert, /^Alphorn$/);
+  check('Bert (englisch) hat zu wenig für das Alphorn', await waitFor(() => sees(bert, /You need \d+ ✦ more for Alphorn/), 2000) &&
+    (await wallet('Bert')).guthaben === bertBefore, bert.chats.slice(-1)[0]);
+  await closeWindow(bert);
   for (const b of [anna, bert, dora]) b.chat('/karte heustadel');
   await sleep(800);
   await cmd('versteckerladmin sucher Anna');
@@ -467,9 +674,21 @@ async function main() {
     s.members.Dora?.role === 'HIDER', JSON.stringify(s?.members));
   check('Heustadel-Gestalten (englisch): Hay bale … Compost bin', await waitFor(() => bert.currentWindow, 2000) &&
     bert.currentWindow.slots.some((x) => /Compost bin/.test(plain(x?.customName))));
+  check('Dora startet mit ihrer Lieblingsgestalt: Werkbank', s.members.Dora.shape === 'werkbank', JSON.stringify(s.members.Dora));
+  const lockedBench = windowItem(bert, /^Workbench$/);
+  check('Bert sieht die Werkbank, aber gesperrt (Preis)', lockedBench?.name === 'gray_dye' && /Not unlocked yet – 150/.test(loreOf(lockedBench)),
+    `${lockedBench?.name} ${loreOf(lockedBench)}`);
+  bert.chats.length = 0;
+  await clickNamed(bert, /^Workbench$/);
+  check('Gesperrte Gestalt: freundlicher Hinweis, keine Verwandlung', await waitFor(() => sees(bert, /Unlock the Workbench disguise/), 2000) &&
+    (await status()).heustadel.members.Bert.shape !== 'werkbank', bert.chats.slice(-1)[0]);
+  await waitFor(() => bert.currentWindow, 1000);
+  if (!bert.currentWindow) await openWithItem(bert, 0);
   await clickNamed(bert, /^Pumpkin$/);
   await waitFor(() => dora.currentWindow, 2000);
-  await clickNamed(dora, /^Melone$/);
+  check('Doras Menü: Werkbank freigeschaltet und gewählt', /Das bist du gerade/.test(loreOf(windowItem(dora, /^Werkbank$/))),
+    loreOf(windowItem(dora, /^Werkbank$/)));
+  await closeWindow(dora);
   // Zuschauer
   const emil = await join('Emil');
   emil.chat('/zuschauen heustadel');
@@ -488,12 +707,33 @@ async function main() {
   await tp(dora, 'Dora', Q.x + 0.5, Q.y, Q.z + 0.5);
   await sleep(2800);
   s = (await status()).heustadel;
-  check('Bert (Kürbis) und Dora (Melone) eingerastet', s.members.Bert.solid && s.members.Dora.solid &&
-    (await blockIs(P.x, P.y, P.z, 'carved_pumpkin')) && (await blockIs(Q.x, Q.y, Q.z, 'melon')), JSON.stringify(s.members));
+  check('Bert (Kürbis) und Dora (Werkbank aus dem Laden) eingerastet', s.members.Bert.solid && s.members.Dora.solid &&
+    (await blockIs(P.x, P.y, P.z, 'carved_pumpkin')) && (await blockIs(Q.x, Q.y, Q.z, 'crafting_table')), JSON.stringify(s.members));
   await cmd('versteckerladmin zeit 1');
   await waitFor(async () => (await status()).heustadel?.phase === 'SEEK', 4000);
   await sleep(800);
   clear(anna, bert, carl2, dora, emil);
+  // Pfiff-Klang aus dem Laden: Kuhglocke ist laut → +2
+  await useItem(dora, 1);
+  s = (await status()).heustadel;
+  check('Kuhglocke: lauter Pfiff mit Extrapunkten (1 + 2)', s.members.Dora.points === 3 && s.members.Dora.whistles === 1 &&
+    sawBar(dora, /laut \+2/), `${JSON.stringify(s.members.Dora)} ${dora.bars.slice(-1)[0]}`);
+  check('Die Gendarmen hören die Kuhglocke', await waitFor(() => anna.sounds.some((n) => /note_block|bell/.test(n)), 2000),
+    anna.sounds.join(','));
+  // Rundenladen: zu wenig Punkte (Bert hat noch keine)
+  win = await openWithItem(bert, 3);
+  bert.chats.length = 0;
+  await clickNamed(bert, /^Fog cloud$/);
+  check('Rundenladen: zu wenig Punkte für die Nebelwolke (englisch)', await waitFor(() => sees(bert, /You need 3 more points/), 2000) &&
+    (await status()).heustadel.members.Bert.spent === 0, bert.chats.slice(-1)[0]);
+  await closeWindow(bert);
+  // Nebelwolke: Anna steht nah dran und sieht kurz nichts
+  await tp(anna, 'Anna', Q.x + 0.5, FLOOR + 1, Q.z - 2.5, 0, 20);
+  win = await openWithItem(dora, 3);
+  await clickNamed(dora, /^Nebelwolke$/);
+  check('Nebelwolke: Gendarmin daneben sieht kurz nichts', await waitFor(() => hasEffect(anna, BLINDNESS), 2000) &&
+    sawBar(anna, /Nebel/) && (await status()).heustadel.members.Dora.spent === 3, `${anna.bars.slice(-1)[0]}`);
+  await sleep(2200);
   await tp(anna, 'Anna', P.x + 0.5, FLOOR + 1, P.z + 3.5, 180, 20);
   await strike(anna, P.x + 0.5, P.y + 0.5, P.z + 0.5);
   await sleep(800);
@@ -509,6 +749,10 @@ async function main() {
   st = statsOf('Anna').at(-1);
   check('Netzwerk-Statistik Anna: Sieg als Gendarm, zwei gefunden', st?.add.wins_seeker === 1 && st.add.found === 2,
     JSON.stringify(st));
+  check('Zweiter Sieg in Folge: Siegesserie, kein zweiter Tagesbonus', sees(anna, /Siegesserie \(2 in Folge\)/) &&
+    !sees(anna, /erster Sieg heute/) && st.best.best_streak === 2 && st.add.bonus === 3, JSON.stringify(st));
+  check('Erster Fund der Runde: Extrapunkte', sees(anna, /Erster Fund der Runde/));
+  check('Titel in der Rangliste: „Dora ☘ Dorfkind“', sees(anna, /Dora ☘ Dorfkind/), anna.chats.filter((c) => /Dora/.test(c)).join(' | '));
   st = statsOf('Carl').at(-1);
   check('Netzwerk-Statistik Carl (Nachzügler): Sieg als Gendarm', st?.add.wins_seeker === 1 && st.add.games === 1,
     JSON.stringify(st));
@@ -523,6 +767,8 @@ async function main() {
   check('/stats zeigt Runden und Funde', /Runden: 2/.test(statsOut) && /Gefunden: 2/.test(statsOut), statsOut.replace(/\n/g, ' '));
   const topOut = String(await cmd('top')).replace(/§./g, '');
   check('/top zeigt die Steckbriefe', /Meiste Funde/.test(topOut) && /Anna|Dora/.test(topOut), topOut.replace(/\n/g, ' '));
+
+  fs.writeFileSync(WALLET_FILE(), (await wallet('Dora')).line);
 
   // ------------------------------------------------------------------ Lobby
   await useItem(bert, 8);
@@ -545,7 +791,35 @@ async function main() {
   process.exit(failed.length ? 1 : 0);
 }
 
-main().catch((e) => {
+/** Zweiter Teil nach einem Neustart: alles noch da? */
+async function afterRestart() {
+  await sleep(4000);
+  const before = readFile(WALLET_FILE()).trim();
+  const now = (await wallet('Dora')).line;
+  check('Nach dem Neustart: Guthaben, Freischaltungen und Ausrüstung wie vorher', before.length > 0 && now === before,
+    `vorher: ${before} | jetzt: ${now}`);
+  const holos = String(await cmd(inWorld(`execute positioned 0 ${FLOOR + 1} 0 if entity @e[type=text_display,distance=..30]`)));
+  const wastl = String(await cmd(inWorld(`execute positioned ${KRAEMER.x} ${KRAEMER.y} ${KRAEMER.z} if entity @e[type=villager,tag=versteckerl_kraemer,distance=..1.5]`)));
+  check('Nach dem Neustart: Wastl und die Tafeln stehen wieder (genau einmal)', /: 1\b/.test(wastl) && /: 10\b/.test(holos),
+    `${wastl.trim()} ${holos.trim()}`);
+  const dora = await join('Dora');
+  const balance = /guthaben=(\d+)/.exec(before)?.[1] ?? '?';
+  let win = await openWithItem(dora, 2);
+  check(`Laden nach dem Neustart: Guthaben ${balance} ✦`, plain(win?.slots[4]?.customName).includes(`Guthaben: ${balance} ✦`),
+    plain(win?.slots[4]?.customName));
+  win = await clickAndWait(dora, /^Gestalten$/);
+  check('Werkbank ist noch Lieblingsgestalt', /Lieblingsgestalt/.test(loreOf(windowItem(dora, /^Werkbank$/))),
+    loreOf(windowItem(dora, /^Werkbank$/)));
+  await closeWindow(dora);
+  dora.quit();
+  await sleep(1000);
+  const failed = results.filter((r) => !r.ok);
+  console.log(`\n${results.length - failed.length}/${results.length} Prüfungen nach dem Neustart bestanden.`);
+  failed.forEach((f) => console.log(`  ✗ ${f.name}`));
+  process.exit(failed.length ? 1 : 0);
+}
+
+(AFTER_RESTART ? afterRestart() : main()).catch((e) => {
   console.error(e);
   process.exit(2);
 });

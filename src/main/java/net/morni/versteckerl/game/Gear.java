@@ -9,20 +9,23 @@ import org.bukkit.inventory.PlayerInventory;
 
 /**
  * Die Hilfen in der Schnellleiste (Rechtsklick – geht auch auf Bedrock): Versteckte haben Gestalt, Pfiff und
- * Sprungkraft, Gendarmen den Gendarmenstab und die Spürnase.
+ * Sprungkraft, Gendarmen den Gendarmenstab und die Spürnase. Beide haben dazu die Kramerkiste (Rundenladen), wenn er
+ * offen ist.
  */
 public final class Gear {
 
     public static final int SLOT_SHAPE = 0;
     public static final int SLOT_WHISTLE = 1;
     public static final int SLOT_JUMP = 2;
+    public static final int SLOT_HIDER_HELPS = 3;
     public static final int SLOT_STICK = 0;
     public static final int SLOT_SNIFF = 1;
+    public static final int SLOT_SEEKER_HELPS = 2;
 
     private Gear() {
     }
 
-    static void hider(Player p, String lang, boolean seeking, boolean changeUsed) {
+    static void hider(Player p, String lang, boolean seeking, boolean changeUsed, boolean helps) {
         PlayerInventory inv = p.getInventory();
         inv.clear();
         String shapeKey = seeking ? "item.shape.change" : "item.shape";
@@ -34,16 +37,27 @@ public final class Gear {
                 Texts.lines(lang, "item.whistle.lore")), "whistle"));
         inv.setItem(SLOT_JUMP, Items.kitTag(Items.named(Material.RABBIT_FOOT, 1, Texts.text(lang, "item.jump"),
                 Texts.lines(lang, "item.jump.lore")), "jump"));
+        if (helps) {
+            inv.setItem(SLOT_HIDER_HELPS, helpsItem(lang, "item.helps.hider.lore"));
+        }
         inv.setHeldItemSlot(8);
     }
 
-    static void seeker(Player p, String lang, boolean sniffUsed) {
+    private static ItemStack helpsItem(String lang, String lore) {
+        return Items.kitTag(Items.named(Material.CHEST, 1, Texts.text(lang, "item.helps"), Texts.lines(lang, lore)),
+                "helps");
+    }
+
+    static void seeker(Player p, String lang, boolean sniffUsed, boolean helps) {
         PlayerInventory inv = p.getInventory();
         inv.clear();
         inv.setItem(SLOT_STICK, Items.kitTag(Items.named(Material.STICK, 1, Texts.text(lang, "item.stick"),
                 Texts.lines(lang, "item.stick.lore")), "stick"));
         inv.setItem(SLOT_SNIFF, Items.glow(Items.kitTag(Items.named(Material.BONE, 1, Texts.text(lang, "item.sniff"),
                 Texts.lines(lang, sniffUsed ? "item.sniff.used.lore" : "item.sniff.lore")), "sniff"), !sniffUsed));
+        if (helps) {
+            inv.setItem(SLOT_SEEKER_HELPS, helpsItem(lang, "item.helps.seeker.lore"));
+        }
         inv.setHeldItemSlot(SLOT_STICK);
     }
 

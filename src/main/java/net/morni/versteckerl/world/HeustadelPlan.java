@@ -44,6 +44,7 @@ final class HeustadelPlan {
         Decor.greenery(p, -HALF, -14, -18, -11, 2, r, (x, z) -> false);
         DorfplatzPlan.booth(p, layout);
         Decor.flowers(p, -HALF, -HALF, HALF, HALF, 5, r, (x, z) -> Math.abs(x) <= 1 && z > 0);
+        shopDecoys(p);
         Decor.barrierBox(p, HALF, layout.ceiling());
         p.connect();
         return p;
@@ -456,6 +457,35 @@ final class HeustadelPlan {
         }
         p.set(22, 1, -26, BARREL_UP);
         p.set(18, 1, -23, LANTERN);
+    }
+
+    /**
+     * Attrappen der Gestalten aus dem Kramerladen: Werkbänke in Tenne, Lager, Stall, Bauernhaus, Holzlege und
+     * Kompostecke, Schleifsteine im Hof, Webstühle in der Bauernstube, blühende Büsche auf den Wiesen, Kürbislaternen
+     * im Garten, am Tor und als Kopf der Vogelscheuche.
+     */
+    private static void shopDecoys(Plan p) {
+        Decor.decoys(p, "crafting_table", new int[] {-3, -17}, new int[] {3, -6}, new int[] {7, -12},
+                new int[] {19, -12}, new int[] {24, -24}, new int[] {-21, -4}, new int[] {-10, -7});
+        int[][] grind = {{-11, 6}, {14, 3}, {11, -17}, {20, -27}, {-5, 7}, {16, -5}, {-26, -6}};
+        for (int i = 0; i < grind.length; i++) {
+            Decor.decoy(p, grind[i][0], 1, grind[i][1], "grindstone[face=floor,facing=" + (i % 2 == 0 ? "north" : "east")
+                    + "]");
+        }
+        Decor.decoys(p, "loom[facing=south]", new int[] {20, -21}, new int[] {23, -21});
+        Decor.decoys(p, "loom[facing=west]", new int[] {27, -17}, new int[] {27, -13});
+        Decor.decoys(p, "loom[facing=north]", new int[] {20, -9}, new int[] {23, -9});
+        for (int[] b : new int[][] {{-27, 12}, {-22, 13}, {-15, 15}, {-10, 21}, {-19, 23}, {-26, 25}, {-7, 25},
+            {20, -4}, {25, 2}, {29, 6}, {-13, 9}}) {
+            Decor.bushOnMeadow(p, b[0], b[1]);
+        }
+        p.set(5, 1, 28, "jack_o_lantern[facing=south]");
+        p.set(-12, 1, 2, "jack_o_lantern[facing=south]");
+        p.set(8, 1, -4, "jack_o_lantern[facing=west]");
+        p.set(16, 3, 17, "jack_o_lantern[facing=south]");
+        p.set(14, 1, 15, "jack_o_lantern[facing=south]");
+        p.set(24, 1, 19, "jack_o_lantern[facing=north]");
+        Decor.decoy(p, -14, 1, 1, "jack_o_lantern[facing=east]");
     }
 
     /** Hoftor im Süden, wo die Gendarmen losgehen: Zaun mit Tor, Bank, Marterl. */

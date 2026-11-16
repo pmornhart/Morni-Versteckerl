@@ -50,6 +50,30 @@ class MapPlanTest {
         }
     }
 
+    /**
+     * Gestalten aus dem Kramerladen: genau so aussehende Attrappen (gleicher Block) – sonst fiele ein Kuchen zwischen
+     * lauter Festtagskuchen auf. Und jede steht auf mindestens einer Karte.
+     */
+    @Test
+    void shopShapesHaveLookAlikes() {
+        for (Shape s : Shape.values()) {
+            if (s.free()) {
+                continue;
+            }
+            boolean somewhere = false;
+            for (MapType m : MapType.values()) {
+                if (!m.shapes().contains(s)) {
+                    continue;
+                }
+                somewhere = true;
+                String base = Blocks.base(s.block());
+                int n = PLANS.get(m).count(spec -> Blocks.base(spec).equals(base));
+                assertTrue(n >= MIN_DECOYS, m + ": nur " + n + " echte " + base + " für " + s.id());
+            }
+            assertTrue(somewhere, s.id() + " gibt es auf keiner Karte");
+        }
+    }
+
     @Test
     void startPointsAreFree() {
         for (MapType m : MapType.values()) {
@@ -129,7 +153,7 @@ class MapPlanTest {
             String top = hall.get(HallPlan.STANDS[i][0], 2, HallPlan.STANDS[i][1]);
             assertNotNull(top);
             String finalTop = top;
-            assertTrue(maps[i].shapes().stream().anyMatch(s -> s.sameKind(finalTop)), maps[i] + ": " + top);
+            assertTrue(maps[i].freeShapes().stream().anyMatch(s -> s.sameKind(finalTop)), maps[i] + ": " + top);
         }
     }
 

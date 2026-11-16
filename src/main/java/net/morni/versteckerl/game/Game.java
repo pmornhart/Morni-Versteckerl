@@ -8,15 +8,22 @@ import net.morni.versteckerl.Ui;
 import net.morni.versteckerl.VersteckerlPlugin;
 import net.morni.versteckerl.data.Leaderboard;
 import net.morni.versteckerl.data.PlayerData;
+import net.morni.versteckerl.hall.Shop;
+import net.morni.versteckerl.rules.Catalog;
+import net.morni.versteckerl.rules.Helps;
 import net.morni.versteckerl.rules.Outcome;
-import net.morni.versteckerl.rules.Points;
+import net.morni.versteckerl.rules.Rewards;
 import net.morni.versteckerl.rules.Ray;
+import net.morni.versteckerl.rules.Settlement;
 import net.morni.versteckerl.rules.Shape;
 import net.morni.versteckerl.rules.Whistle;
 import net.morni.versteckerl.world.MapLayout;
 import net.morni.versteckerl.world.MapType;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -56,6 +63,9 @@ import org.bukkit.util.Vector;
  * Eine Runde Versteckerl auf einer Karte: erst die Versteckzeit (die Versteckten suchen sich ihre Gestalt und einen
  * Platz, die Dorfgendarmen warten in ihrer Stube), dann die Suchzeit. Gefundene werden Gendarmen. Ist bei Ablauf noch
  * jemand versteckt, gewinnen die Versteckten, sonst die Gendarmen.
+ *
+ * <p>Punkte gibt es nach {@link Rewards}; im Rundenladen ({@link HelpMenu}) kauft man damit kleine Hilfen. Am Ende
+ * kommt der Rest mit Serien- und Tagesbonus aufs Guthaben ({@link Settlement}).
  */
 public final class Game {
 
@@ -83,13 +93,22 @@ public final class Game {
     private static final int HALF_MINUTE = 30 * SECOND;
     private static final int TICKET_RADIUS = 3;
     private static final int TOP_ROWS = 5;
+    /** Die Laterne zeigt, wer sich in den letzten so vielen Ticks bewegt hat. */
+    private static final int MOVED_RECENTLY = 10;
+    private static final int LANTERN_EVERY = 4;
+    private static final int FOG_EVERY = 3;
+    private static final int FOG_BLIND = 30;
+    /** Der Tagesbonus richtet sich nach dem Tag in Deutschland. */
+    private static final ZoneId DAY_ZONE = ZoneId.of("Europe/Berlin");
 
     private final VersteckerlPlugin plugin;
     private final MapType map;
     private final MapLayout layout;
     private final World world;
     private final Settings settings;
+    private final Rewards rewards;
     private final Map<UUID, Member> members = new LinkedHashMap<>();
+    private final List<Fog> fogs = new ArrayList<>();
     private final List<UUID> spectators = new ArrayList<>();
     private final LangBar timeBar = new LangBar(BossBar.Color.GREEN, BossBar.Overlay.PROGRESS);
     private final Random random = new Random();
@@ -99,7 +118,14 @@ public final class Game {
     private long seekElapsed;
     private long tick;
     private boolean dutyAnnounced;
+    private boolean firstFound;
+    private boolean lastHiderPaid;
+    private int startHiders;
     private Outcome.Winner winner = Outcome.Winner.NONE;
+
+    /** Eine Nebelwolke aus dem Rundenladen: steht an einer Stelle, bis sie verweht. */
+    private record Fog(Location center, long until, int range) {
+    }
 
     Game(VersteckerlPlugin plugin, MapType map, List<Player> players, Set<UUID> seekers) {
         this.plugin = plugin;
@@ -107,6 +133,7 @@ public final class Game {
         this.layout = map.layout();
         this.world = plugin.world();
         this.settings = plugin.settings();
+        this.rewards = settings.rewards();
         tickets(true);
         phaseTicks = settings.hideSeconds() * SECOND;
         for (Player p : players) {
@@ -140,6 +167,7 @@ public final class Game {
                 p.sendMessage(Texts.msg(lang, "start.seeker.chat"));
             }
         }
+        startHiders = count(Member.Role.HIDER);
         broadcast(lang -> Texts.msg(lang, "start.roles", Placeholder.unparsed("seekers", names(Member.Role.SEEKER)),
                 Placeholder.unparsed("n", String.valueOf(count(Member.Role.HIDER)))));
         applyVisibilityAll();
@@ -237,9 +265,9 @@ public final class Game {
                 Block c = m.disguise.cell();
                 cell = c.getX() + "," + c.getY() + "," + c.getZ();
             }
-            sb.append(String.format(Locale.ROOT, " %s=%s:%s:%d:%d:%d:%d:%d:%s:%s", m.name, m.role, shape,
+            sb.append(String.format(Locale.ROOT, " %s=%s:%s:%d:%d:%d:%d:%d:%s:%s:%d", m.name, m.role, shape,
                     m.disguise != null && m.disguise.solid() ? 1 : 0, m.lives, m.points, m.finds, m.whistles, cell,
-                    m.online ? "on" : "off"));
+                    m.online ? "on" : "off", m.spent));
         }
         return sb.toString();
     }
@@ -271,11 +299,10 @@ public final class Game {
         reset(p, GameMode.ADVENTURE);
         p.addPotionEffect(quiet(PotionEffectType.INVISIBILITY, PotionEffect.INFINITE_DURATION, 0));
         m.lives = settings.hitsToFind();
-        Shape s = map.shapes().get(random.nextInt(map.shapes().size()));
-        m.disguise = Disguise.create(plugin, p, s);
+        m.disguise = Disguise.create(plugin, p, startShape(p));
         m.stillSince = tick;
         m.lastPos = p.getLocation();
-        Gear.hider(p, lang, false, false);
+        Gear.hider(p, lang, false, false, settings.roundShop());
         timeBar.show(p, lang);
         Holo.refresh(plugin, p, lang);
     }
@@ -292,7 +319,25 @@ public final class Game {
         p.teleport(seekerStart());
         p.removePotionEffect(PotionEffectType.BLINDNESS);
         p.removePotionEffect(PotionEffectType.SLOWNESS);
-        Gear.seeker(p, plugin.lang(p), m.sniffUsed);
+        Gear.seeker(p, plugin.lang(p), m.sniffUsed, settings.roundShop());
+    }
+
+    /** Gestalten, die jemand auf dieser Karte nehmen darf: die freien und die im Kramerladen freigeschalteten. */
+    public List<Shape> allowedShapes(Player p) {
+        PlayerData d = plugin.data(p);
+        Shop shop = plugin.shop();
+        return map.shapes().stream().filter(s -> shop.usable(d, s)).toList();
+    }
+
+    /** Start-Gestalt: die Lieblingsgestalt, wenn es sie hier gibt, sonst eine zufällige der erlaubten. */
+    private Shape startShape(Player p) {
+        List<Shape> allowed = allowedShapes(p);
+        Catalog.Item fav = plugin.shop().equipped(plugin.data(p), Catalog.Kind.SHAPE);
+        Shape favourite = fav == null ? null : Catalog.shape(fav);
+        if (favourite != null && allowed.contains(favourite)) {
+            return favourite;
+        }
+        return allowed.get(random.nextInt(allowed.size()));
     }
 
     /** Nachzügler aus der Party: kommt als Gendarm dazu. */
@@ -449,14 +494,16 @@ public final class Game {
                 seekElapsed++;
                 tickHiders();
                 tickSeekers();
+                tickFogs();
                 whistleDuty();
                 if (seekElapsed % HALF_MINUTE == 0) {
                     for (Member m : members.values()) {
                         if (m.hidden()) {
-                            m.points += Points.PER_HALF_MINUTE;
+                            m.points += rewards.perHalfMinute();
                         }
                     }
                 }
+                lastHider();
                 checkEnd(phaseTicks <= 0);
             }
             case OVER -> {
@@ -518,7 +565,7 @@ public final class Game {
                 releaseSeeker(p, m);
                 Ui.title(p, Texts.text(lang, "seek.title"), Texts.text(lang, "seek.sub.seeker"), 2500);
             } else {
-                Gear.hider(p, lang, true, m.changeUsed);
+                Gear.hider(p, lang, true, m.changeUsed, settings.roundShop());
                 Ui.title(p, Texts.text(lang, "seek.title"), Texts.text(lang, "seek.sub.hider"), 2500);
             }
         }
@@ -566,6 +613,7 @@ public final class Game {
                 } else if (away) {
                     unlock(p, m);
                     m.stillSince = tick;
+                    m.lastMoveTick = tick;
                 }
                 m.lastPos = p.getLocation();
                 continue;
@@ -576,6 +624,7 @@ public final class Game {
                     || Math.abs(now.getY() - last.getY()) > MOVE_EPS;
             if (moved) {
                 m.stillSince = tick;
+                m.lastMoveTick = tick;
                 m.lockHint = false;
                 d.follow(now);
             } else if (tick - m.stillSince >= lockTicks && tick >= m.noLockUntil) {
@@ -660,6 +709,10 @@ public final class Game {
             return;
         }
         String lang = plugin.lang(p);
+        if (!allowedShapes(p).contains(s)) {
+            p.sendMessage(Texts.msg(lang, "shape.locked", Placeholder.unparsed("shape", Texts.plain(lang, "shape." + s.id()))));
+            return;
+        }
         if (m.disguise.shape() == s) {
             return;
         }
@@ -669,7 +722,7 @@ public final class Game {
                 return;
             }
             m.changeUsed = true;
-            Gear.hider(p, lang, true, true);
+            Gear.hider(p, lang, true, true, settings.roundShop());
         }
         m.disguise.shape(s);
         p.sendMessage(Texts.msg(lang, "shape.chosen", Placeholder.unparsed("shape", Texts.plain(lang, "shape." + s.id()))));
@@ -694,7 +747,10 @@ public final class Game {
 
     // ---------- Hilfen der Versteckten ----------
 
-    /** Pfiff: Geräusch und Noten an der eigenen Stelle; freiwillig gibt es Punkte (je später, desto mehr). */
+    /**
+     * Pfiff: der eigene Pfiff-Klang und Noten an der eigenen Stelle. Freiwillig gibt es Punkte: je später, je lauter der
+     * Klang und je näher ein Gendarm steht (Mut), desto mehr.
+     */
     public void whistle(Player p, boolean forced) {
         Member m = members.get(p.getUniqueId());
         if (m == null || !m.hidden()) {
@@ -711,28 +767,64 @@ public final class Game {
             return;
         }
         Location at = m.disguise != null && m.disguise.solid() ? m.disguise.center() : p.getLocation();
-        whistleSound(at);
+        Catalog.Item sound = plugin.shop().equipped(plugin.data(p), Catalog.Kind.WHISTLE);
+        int loudness = sound == null ? Catalog.QUIET : Math.max(Catalog.QUIET, sound.loudness());
+        Flair.whistle(plugin, at, sound == null ? "floete" : sound.id(), loudness);
         m.lastWhistle = seekElapsed;
         m.whistleReady = tick + (long) settings.whistleCooldown() * SECOND;
         m.warned = false;
         if (forced) {
             p.sendMessage(Texts.msg(lang, "whistle.forced"));
-        } else {
-            int pts = Points.whistle(seekElapsed / SECOND);
-            m.points += pts;
-            m.whistles++;
-            p.sendActionBar(Texts.text(lang, "whistle.done", Placeholder.unparsed("n", String.valueOf(pts))));
+            return;
         }
+        double nearest = nearestSeeker(at);
+        int courage = rewards.courage(nearest);
+        int loud = rewards.loudness(loudness);
+        int pts = rewards.whistle(seekElapsed / SECOND, loudness, nearest);
+        m.points += pts;
+        m.whistles++;
+        List<String> extra = new ArrayList<>();
+        if (courage > 0) {
+            extra.add(Texts.raw(lang, "whistle.brave").replace("<n>", String.valueOf(courage)));
+        }
+        if (loud > 0) {
+            extra.add(Texts.raw(lang, "whistle.loud").replace("<n>", String.valueOf(loud)));
+        }
+        String bonus = extra.isEmpty() ? "" : " <gray>(" + String.join(" · ", extra) + ")</gray>";
+        p.sendActionBar(Texts.text(lang, "whistle.done", Placeholder.unparsed("n", String.valueOf(pts)),
+                Placeholder.parsed("extra", bonus)));
     }
 
-    private void whistleSound(Location at) {
-        Location ear = at.clone().add(0, 0.6, 0);
-        world.playSound(Sound.sound(Key.key("minecraft:block.note_block.flute"), Sound.Source.PLAYER, 3f, 1.3f),
-                ear.getX(), ear.getY(), ear.getZ());
-        Bukkit.getScheduler().runTaskLater(plugin, () -> world.playSound(Sound.sound(
-                Key.key("minecraft:block.note_block.flute"), Sound.Source.PLAYER, 3f, 1.8f), ear.getX(), ear.getY(),
-                ear.getZ()), 4L);
-        world.spawnParticle(Particle.NOTE, at.clone().add(0, 1.3, 0), 4, 0.3, 0.2, 0.3, 1);
+    /** Abstand zum nächsten Gendarmen (in Blöcken; keiner da = unendlich). */
+    private double nearestSeeker(Location at) {
+        double best = Double.POSITIVE_INFINITY;
+        for (Member s : members.values()) {
+            Player sp = Bukkit.getPlayer(s.uuid);
+            if (s.online && s.role == Member.Role.SEEKER && sp != null && sp.getWorld() == world) {
+                best = Math.min(best, sp.getLocation().distance(at));
+            }
+        }
+        return best;
+    }
+
+    /** Wer als Letzter noch versteckt ist, bekommt einmal Extrapunkte (bei mindestens zwei Versteckten am Anfang). */
+    private void lastHider() {
+        if (lastHiderPaid || startHiders < 2 || count(Member.Role.HIDER) != 1) {
+            return;
+        }
+        lastHiderPaid = true;
+        for (Member m : members.values()) {
+            Player p = Bukkit.getPlayer(m.uuid);
+            if (m.hidden() && p != null) {
+                m.points += rewards.lastHider();
+                String lang = plugin.lang(p);
+                Ui.title(p, Component.empty(), Texts.text(lang, "last.hider", Placeholder.unparsed("n",
+                        String.valueOf(rewards.lastHider()))), 2500);
+                Ui.sound(p, "minecraft:block.note_block.pling", 1.6f);
+                Member last = m;
+                broadcast(l -> Texts.msg(l, "last.chat", Placeholder.unparsed("player", last.name)));
+            }
+        }
     }
 
     /** Pflicht-Pfiff: ab einem Teil der Suchzeit muss regelmäßig gepfiffen werden. */
@@ -815,6 +907,9 @@ public final class Game {
             if (m.sniffTarget != null && tick < m.sniffUntil && tick % SNIFF_EVERY == 0) {
                 sniffTrail(p, m);
             }
+            if (tick < m.lanternUntil && tick % LANTERN_EVERY == 0) {
+                lanternGlow(p);
+            }
         }
     }
 
@@ -853,7 +948,7 @@ public final class Game {
         m.sniffUsed = true;
         m.sniffTarget = target.uuid;
         m.sniffUntil = tick + (long) settings.sniffSeconds() * SECOND;
-        Gear.seeker(p, lang, true);
+        Gear.seeker(p, lang, true, settings.roundShop());
         long rough = Math.max(5, Math.round(Math.sqrt(best) / 5.0) * 5);
         p.sendMessage(Texts.msg(lang, "sniff.start", Placeholder.unparsed("n", String.valueOf(rough))));
         Ui.sound(p, "minecraft:entity.fox.sniff", 1f);
@@ -960,7 +1055,7 @@ public final class Game {
         h.immuneUntil = tick + HIT_IMMUNE;
         h.lives--;
         s.hits++;
-        s.points += Points.HIT;
+        s.points += rewards.hit();
         Location at = h.disguise != null && h.disguise.solid() ? h.disguise.center() : hp.getLocation();
         world.spawnParticle(Particle.CRIT, at.clone().add(0, 0.6, 0), 12, 0.3, 0.3, 0.3, 0.1);
         world.playSound(Sound.sound(Key.key("minecraft:entity.player.hurt"), Sound.Source.PLAYER, 1f, 1.3f),
@@ -983,12 +1078,19 @@ public final class Game {
     /** Gefunden: wird Gendarm. */
     private void found(Member h, Player hp, Member s, Player seeker) {
         Shape shape = h.disguise != null ? h.disguise.shape() : null;
+        Location where = h.disguise != null && h.disguise.solid() ? h.disguise.center() : hp.getLocation();
         s.finds++;
-        s.points += Points.FIND;
+        s.points += rewards.find();
+        if (!firstFound) {
+            firstFound = true;
+            s.points += rewards.firstFind();
+            seeker.sendMessage(Texts.msg(plugin.lang(seeker), "found.first", Placeholder.unparsed("n",
+                    String.valueOf(rewards.firstFind()))));
+        }
         undress(hp, h);
         h.role = Member.Role.SEEKER;
         reset(hp, GameMode.ADVENTURE);
-        Gear.seeker(hp, plugin.lang(hp), h.sniffUsed);
+        Gear.seeker(hp, plugin.lang(hp), h.sniffUsed, settings.roundShop());
         String shapeId = shape == null ? "fass" : shape.id();
         broadcast(lang -> Texts.msg(lang, "found.chat", Placeholder.unparsed("seeker", s.name),
                 Placeholder.unparsed("hider", h.name), Placeholder.unparsed("shape", Texts.plain(lang, "shape." + shapeId)),
@@ -998,7 +1100,7 @@ public final class Game {
         Ui.title(seeker, Component.empty(), Texts.text(plugin.lang(seeker), "found.seeker",
                 Placeholder.unparsed("hider", h.name)), 1500);
         soundAll("minecraft:entity.player.levelup", 1.6f);
-        world.spawnParticle(Particle.HAPPY_VILLAGER, hp.getLocation().add(0, 1, 0), 20, 0.4, 0.6, 0.4, 0);
+        Flair.find(where, plugin.shop().equippedId(plugin.data(seeker), Catalog.Kind.FIND));
         applyVisibilityAll();
         plugin.stateChanged();
     }
@@ -1040,6 +1142,185 @@ public final class Game {
         return "<red>" + "♥".repeat(Math.max(0, lives)) + "</red>";
     }
 
+    // ---------- Rundenladen ----------
+
+    /** Kramerkiste öffnen (Knopf oder /laden in der Runde). */
+    public void openHelps(Player p) {
+        Member m = members.get(p.getUniqueId());
+        if (m == null || !m.online || phase == Phase.OVER) {
+            return;
+        }
+        if (!settings.roundShop()) {
+            p.sendMessage(Texts.msg(plugin.lang(p), "help.closed"));
+            return;
+        }
+        HelpMenu.open(plugin, this, p);
+    }
+
+    /** Kann jemand die Hilfe jetzt kaufen? (für das Menü) */
+    public Helps.Verdict helpVerdict(Player p, Helps.Help h) {
+        Member m = members.get(p.getUniqueId());
+        if (m == null || !m.online || !settings.roundShop()) {
+            return Helps.Verdict.OFF;
+        }
+        boolean needed = switch (h) {
+            case GESTALTWECHSEL -> m.changeUsed;
+            case SPUERNASE -> m.sniffUsed;
+            default -> true;
+        };
+        long cooldown = Math.max(0, m.helpReady.getOrDefault(h, 0L) - tick);
+        return Helps.check(h, settings.help(h), m.role == Member.Role.HIDER, phase == Phase.SEEK, needed,
+                m.available(), m.uses(h), cooldown);
+    }
+
+    /** Sekunden, bis eine Hilfe wieder geht (0 = bereit). */
+    public int helpCooldown(UUID uuid, Helps.Help h) {
+        Member m = members.get(uuid);
+        if (m == null) {
+            return 0;
+        }
+        long left = m.helpReady.getOrDefault(h, 0L) - tick;
+        return left <= 0 ? 0 : (int) ((left + SECOND - 1) / SECOND);
+    }
+
+    /** Hilfe kaufen und gleich benutzen (bezahlt mit Punkten der Runde). */
+    public void help(Player p, Helps.Help h) {
+        Member m = members.get(p.getUniqueId());
+        if (m == null) {
+            return;
+        }
+        String lang = plugin.lang(p);
+        Helps.Verdict v = helpVerdict(p, h);
+        Helps.Rule rule = settings.help(h);
+        if (v != Helps.Verdict.OK) {
+            p.sendMessage(Texts.msg(lang, "help.no." + v.name().toLowerCase(Locale.ROOT).replace('_', '-'),
+                    Placeholder.unparsed("help", Texts.plain(lang, "help." + h.id())),
+                    Placeholder.unparsed("n", String.valueOf(rule == null ? 0 : rule.price() - m.available())),
+                    Placeholder.unparsed("secs", String.valueOf(helpCooldown(p.getUniqueId(), h)))));
+            Ui.sound(p, "minecraft:entity.villager.no", 1.2f);
+            return;
+        }
+        m.spent += rule.price();
+        m.helpsBought++;
+        m.helpUses.merge(h, 1, Integer::sum);
+        m.helpReady.put(h, tick + (long) rule.cooldown() * SECOND);
+        p.sendMessage(Texts.msg(lang, "help.bought", Placeholder.unparsed("help", Texts.plain(lang, "help." + h.id())),
+                Placeholder.unparsed("n", String.valueOf(rule.price())),
+                Placeholder.unparsed("left", String.valueOf(m.available()))));
+        switch (h) {
+            case LOCKPFIFF -> decoyWhistle(p, m, rule);
+            case NEBELWOLKE -> fog(p, m, rule);
+            case GESTALTWECHSEL -> {
+                m.changeUsed = false;
+                Gear.hider(p, lang, true, false, settings.roundShop());
+                ShapeMenu.open(plugin, this, p);
+            }
+            case LATERNE -> lantern(p, m, rule);
+            case SPUERNASE -> {
+                m.sniffUsed = false;
+                Gear.seeker(p, lang, false, settings.roundShop());
+                sniff(p);
+            }
+            default -> {
+            }
+        }
+    }
+
+    /** Lockpfiff: der eigene Pfiff erklingt ein Stück weiter weg (auf der Karte). */
+    private void decoyWhistle(Player p, Member m, Helps.Rule rule) {
+        Location from = m.disguise != null && m.disguise.solid() ? m.disguise.center() : p.getLocation();
+        Location spot = null;
+        for (int i = 0; i < 12 && spot == null; i++) {
+            double angle = random.nextDouble() * Math.PI * 2;
+            double dist = rule.range() * (0.6 + random.nextDouble() * 0.4);
+            Location l = from.clone().add(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+            if (onMap(l)) {
+                spot = l;
+            }
+        }
+        if (spot == null) {
+            spot = loc(layout.hiders(), 0f, 0f);
+        }
+        Catalog.Item sound = plugin.shop().equipped(plugin.data(p), Catalog.Kind.WHISTLE);
+        Flair.whistle(plugin, spot, sound == null ? "floete" : sound.id(),
+                sound == null ? Catalog.QUIET : Math.max(Catalog.QUIET, sound.loudness()));
+        p.sendActionBar(Texts.text(plugin.lang(p), "help.lockpfiff.done"));
+    }
+
+    /** Nebelwolke an der eigenen Stelle: Gendarmen darin sehen kurz nichts und werden langsam. */
+    private void fog(Player p, Member m, Helps.Rule rule) {
+        Location c = m.disguise != null && m.disguise.solid() ? m.disguise.center() : p.getLocation();
+        fogs.add(new Fog(c.clone(), tick + (long) rule.seconds() * SECOND, rule.range()));
+        world.playSound(Sound.sound(Key.key("minecraft:block.fire.extinguish"), Sound.Source.PLAYER, 1.5f, 0.6f),
+                c.getX(), c.getY(), c.getZ());
+        for (Member s : members.values()) {
+            Player sp = Bukkit.getPlayer(s.uuid);
+            if (s.online && s.role == Member.Role.SEEKER && sp != null && sp.getWorld() == world
+                    && sp.getLocation().distance(c) <= rule.range() + 1) {
+                sp.addPotionEffect(quiet(PotionEffectType.BLINDNESS, FOG_BLIND, 0));
+                sp.sendActionBar(Texts.text(plugin.lang(sp), "help.nebelwolke.seeker"));
+            }
+        }
+        p.sendActionBar(Texts.text(plugin.lang(p), "help.nebelwolke.done"));
+    }
+
+    private void tickFogs() {
+        for (Iterator<Fog> it = fogs.iterator(); it.hasNext();) {
+            Fog f = it.next();
+            if (tick >= f.until()) {
+                it.remove();
+                continue;
+            }
+            if (tick % FOG_EVERY != 0) {
+                continue;
+            }
+            Location c = f.center();
+            world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, c.clone().add(0, 0.6, 0), 6, f.range() * 0.4, 0.5,
+                    f.range() * 0.4, 0.004);
+            world.spawnParticle(Particle.CLOUD, c.clone().add(0, 1, 0), 10, f.range() * 0.45, 0.6, f.range() * 0.45, 0.01);
+            for (Member s : members.values()) {
+                Player sp = Bukkit.getPlayer(s.uuid);
+                if (s.online && s.role == Member.Role.SEEKER && sp != null && sp.getWorld() == world
+                        && sp.getLocation().distance(c) <= f.range()) {
+                    sp.addPotionEffect(quiet(PotionEffectType.SLOWNESS, FOG_EVERY * 3, 1));
+                }
+            }
+        }
+    }
+
+    /** Laterne: ein paar Sekunden zeigen Funken, wer sich in der Nähe bewegt; Versteckte dort bekommen einen Hinweis. */
+    private void lantern(Player p, Member m, Helps.Rule rule) {
+        m.lanternUntil = tick + (long) rule.seconds() * SECOND;
+        Location c = p.getLocation();
+        world.playSound(Sound.sound(Key.key("minecraft:block.lantern.place"), Sound.Source.PLAYER, 1.5f, 1.2f),
+                c.getX(), c.getY(), c.getZ());
+        for (Member h : members.values()) {
+            Player hp = Bukkit.getPlayer(h.uuid);
+            if (h.hidden() && hp != null && hp.getWorld() == world && hp.getLocation().distance(c) <= rule.range()) {
+                Ui.title(hp, Component.empty(), Texts.text(plugin.lang(hp), "help.laterne.hider"), 1500);
+            }
+        }
+        p.sendActionBar(Texts.text(plugin.lang(p), "help.laterne.done", Placeholder.unparsed("secs",
+                String.valueOf(rule.seconds()))));
+    }
+
+    private void lanternGlow(Player seeker) {
+        Helps.Rule rule = settings.help(Helps.Help.LATERNE);
+        int range = rule == null ? 16 : rule.range();
+        Location eye = seeker.getLocation();
+        for (Member h : members.values()) {
+            Player hp = Bukkit.getPlayer(h.uuid);
+            if (!h.hidden() || hp == null || h.disguise == null || h.disguise.solid()
+                    || tick - h.lastMoveTick > MOVED_RECENTLY || hp.getWorld() != world
+                    || hp.getLocation().distance(eye) > range) {
+                continue;
+            }
+            Location at = hp.getLocation().add(0, 0.5, 0);
+            seeker.spawnParticle(Particle.WAX_ON, at, 6, 0.35, 0.4, 0.35, 0);
+            seeker.spawnParticle(Particle.END_ROD, at.clone().add(0, 0.9, 0), 2, 0.1, 0.1, 0.1, 0.01);
+        }
+    }
+
     // ---------- Ende ----------
 
     private void checkEnd(boolean timeUp) {
@@ -1070,6 +1351,7 @@ public final class Game {
     private void gameOver(Outcome.Winner w) {
         phase = Phase.OVER;
         winner = w;
+        fogs.clear();
         phaseTicks = settings.afterSeconds() * SECOND;
         for (Member m : members.values()) {
             if (!m.online) {
@@ -1077,9 +1359,9 @@ public final class Game {
             }
             if (w == Outcome.Winner.HIDERS && m.role == Member.Role.HIDER) {
                 m.survived = true;
-                m.points += Points.SURVIVE;
+                m.points += rewards.survive();
             } else if (w == Outcome.Winner.SEEKERS && m.role == Member.Role.SEEKER) {
-                m.points += Points.SEEKERS_WIN;
+                m.points += rewards.seekersWin();
             }
         }
         // Aufdecken: wer noch versteckt ist, leuchtet
@@ -1103,14 +1385,19 @@ public final class Game {
                     String.join(", ", members.values().stream().filter(this::won).map(m -> m.name).toList()))));
             for (int i = 0; i < Math.min(TOP_ROWS, ranking.size()); i++) {
                 Member r = ranking.get(i);
+                String title = titleOf(r, lang);
                 p.sendMessage(Texts.text(lang, "over.row", Placeholder.unparsed("pos", String.valueOf(i + 1)),
-                        Placeholder.unparsed("name", r.name), Placeholder.unparsed("n", String.valueOf(r.points))));
+                        Placeholder.unparsed("name", r.name), Placeholder.unparsed("title", title.isEmpty() ? ""
+                                : " " + title), Placeholder.unparsed("n", String.valueOf(r.points))));
             }
             if (me != null) {
                 p.sendMessage(Texts.msg(lang, "over.mine", Placeholder.unparsed("n", String.valueOf(me.points))));
             }
             p.sendMessage(Texts.msg(lang, "over.back", Placeholder.unparsed("secs", String.valueOf(settings.afterSeconds()))));
             Ui.sound(p, won ? "minecraft:ui.toast.challenge_complete" : "minecraft:entity.villager.no", 1f);
+            if (won) {
+                Flair.win(plugin, p, plugin.shop().equippedId(plugin.data(p), Catalog.Kind.WIN));
+            }
         }
         for (Member m : members.values()) {
             report(m, true);
@@ -1126,15 +1413,22 @@ public final class Game {
                 || (winner == Outcome.Winner.SEEKERS && m.role == Member.Role.SEEKER && m.online);
     }
 
-    /** Statistik melden (Netzwerk + lokal + Steckbriefe). */
+    /**
+     * Statistik melden (Netzwerk + lokal + Steckbriefe) und abrechnen: Rest der Runde, Serien- und Tagesbonus aufs
+     * Guthaben. Wer vorher geht, zählt als nicht gewonnen (die Serie endet), behält aber, was er gesammelt hat.
+     */
     private void report(Member m, boolean tellBest) {
         boolean winH = winner == Outcome.Winner.HIDERS && m.role == Member.Role.HIDER && m.online;
         boolean winS = winner == Outcome.Winner.SEEKERS && m.role == Member.Role.SEEKER && m.online;
         PlayerData data = plugin.store().get(m.uuid, m.name);
         boolean best = data.addRound(new PlayerData.Round(winH, winS, m.finds, m.survived, m.whistles, m.points));
+        String today = LocalDate.now(DAY_ZONE).toString();
+        Settlement bill = Settlement.of(m.points, m.spent, winH || winS, data.streak(), data.dailyOpen(today), rewards);
+        data.settle(bill, today, m.helpsBought);
         plugin.store().save(data);
         long now = System.currentTimeMillis();
         plugin.board().put(Leaderboard.Board.POINTS, m.name, data.bestPoints(), now);
+        plugin.board().put(Leaderboard.Board.TOTAL, m.name, data.points(), now);
         plugin.board().put(Leaderboard.Board.FOUND, m.name, data.found(), now);
         plugin.board().put(Leaderboard.Board.SURVIVED, m.name, data.survived(), now);
         Map<String, Long> add = new LinkedHashMap<>();
@@ -1145,11 +1439,56 @@ public final class Game {
         add.put("survived", m.survived ? 1L : 0L);
         add.put("whistles", (long) m.whistles);
         add.put("points", (long) m.points);
-        plugin.net().stats(m.uuid, add, Map.of("best_points", (long) m.points));
+        add.put("earned", (long) bill.credit());
+        add.put("bonus", (long) bill.bonus());
+        add.put("helps", (long) m.helpsBought);
+        Map<String, Long> bestValues = new LinkedHashMap<>();
+        bestValues.put("best_points", (long) m.points);
+        bestValues.put("best_streak", (long) bill.streak());
+        plugin.net().stats(m.uuid, add, bestValues);
         Player p = Bukkit.getPlayer(m.uuid);
-        if (best && tellBest && p != null && m.points > 0) {
-            p.sendMessage(Texts.msg(plugin.lang(p), "over.best", Placeholder.unparsed("n", String.valueOf(m.points))));
+        if (p == null || !p.isOnline()) {
+            return;
         }
+        String lang = plugin.lang(p);
+        if (best && tellBest && m.points > 0) {
+            p.sendMessage(Texts.msg(lang, "over.best", Placeholder.unparsed("n", String.valueOf(m.points))));
+        }
+        bill(p, lang, bill, data.balance());
+    }
+
+    /** Abrechnung im Chat (und kurz in der Aktionsleiste). */
+    private void bill(Player p, String lang, Settlement b, long balance) {
+        p.sendMessage(Texts.msg(lang, "settle.head"));
+        p.sendMessage(Texts.text(lang, "settle.round", Placeholder.unparsed("n", String.valueOf(b.round()))));
+        if (b.spent() > 0) {
+            p.sendMessage(Texts.text(lang, "settle.spent", Placeholder.unparsed("n", String.valueOf(b.spent()))));
+        }
+        if (b.streakBonus() > 0) {
+            p.sendMessage(Texts.text(lang, "settle.streak", Placeholder.unparsed("n", String.valueOf(b.streakBonus())),
+                    Placeholder.unparsed("streak", String.valueOf(b.streak()))));
+        }
+        if (b.daily() > 0) {
+            p.sendMessage(Texts.text(lang, "settle.daily", Placeholder.unparsed("n", String.valueOf(b.daily()))));
+        }
+        p.sendMessage(Texts.text(lang, "settle.total", Placeholder.unparsed("n", String.valueOf(b.credit())),
+                Placeholder.unparsed("balance", String.valueOf(balance))));
+        p.sendActionBar(Texts.text(lang, "settle.bar", Placeholder.unparsed("n", String.valueOf(b.credit())),
+                Placeholder.unparsed("balance", String.valueOf(balance))));
+        if (b.credit() > 0) {
+            Ui.sound(p, "minecraft:entity.experience_orb.pickup", 0.9f);
+        }
+    }
+
+    /** Titel einer Person für Rangliste und Leiste („❀ Meister der Tarnung“, leer ohne). */
+    private String titleOf(Member m, String lang) {
+        return plugin.store().loaded(m.uuid).map(d -> plugin.shop().title(d, lang)).orElse("");
+    }
+
+    /** Titel (für die Leiste). */
+    public String titleOf(UUID uuid, String lang) {
+        Member m = members.get(uuid);
+        return m == null ? "" : titleOf(m, lang);
     }
 
     /** Aufräumen und alle zurück in die Gendarmerie. */
@@ -1179,6 +1518,7 @@ public final class Game {
         }
         members.clear();
         spectators.clear();
+        fogs.clear();
         tickets(false);
     }
 
@@ -1246,10 +1586,11 @@ public final class Game {
         return m != null && m.startedHider && m.role == Member.Role.SEEKER;
     }
 
-    /** Alle Gestalt-Anzeigen in der Welt, die zu keiner Runde gehören (nach einem Absturz), entfernen. */
+    /** Alle Gestalt-Anzeigen (und Krämer) in der Welt, die übrig sind (nach einem Absturz), entfernen. */
     public static void cleanStray(World w) {
         for (Entity e : w.getEntities()) {
-            if (e.getScoreboardTags().contains(Disguise.TAG)) {
+            if (e.getScoreboardTags().contains(Disguise.TAG)
+                    || e.getScoreboardTags().contains(net.morni.versteckerl.hall.Kraemer.TAG)) {
                 e.remove();
             }
         }

@@ -2,6 +2,8 @@ package net.morni.versteckerl.listen;
 
 import net.morni.versteckerl.VersteckerlPlugin;
 import net.morni.versteckerl.game.Game;
+import net.morni.versteckerl.hall.Kraemer;
+import net.morni.versteckerl.hall.ShopMenus;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -41,6 +43,12 @@ public final class GameListener implements Listener {
             return;
         }
         e.setCancelled(true);
+        if (e.getDamager() instanceof Player p && Kraemer.is(e.getEntity())
+                && plugin.games().of(p.getUniqueId()) == null) {
+            // Auf Bedrock tippt man Figuren eher an (Schlag) – auch das öffnet den Laden.
+            ShopMenus.open(plugin, p);
+            return;
+        }
         if (e.getDamager() instanceof Player seeker && e.getEntity() instanceof Player hider) {
             Game g = plugin.games().playing(seeker.getUniqueId());
             if (g != null && g == plugin.games().playing(hider.getUniqueId())) {

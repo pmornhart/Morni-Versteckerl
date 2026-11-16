@@ -178,6 +178,40 @@ final class Decor {
         }
     }
 
+    /**
+     * Attrappe hinstellen – nur wenn dort Platz ist (Luft, Gras oder Blumen, kein Wasser) und darunter etwas Festes
+     * steht. Liefert {@code true}, wenn sie steht.
+     */
+    static boolean decoy(Plan p, int x, int y, int z, String spec) {
+        String at = p.get(x, y, z);
+        String below = p.get(x, y - 1, z);
+        if ((at != null && (!Blocks.passable(at) || at.startsWith("water"))) || below == null
+                || Blocks.passable(below)) {
+            return false;
+        }
+        p.set(x, y, z, spec);
+        return true;
+    }
+
+    /** Mehrere Attrappen auf den Boden (y = 1), Stellen als {x, z}. Liefert, wie viele stehen. */
+    static int decoys(Plan p, String spec, int[]... spots) {
+        int n = 0;
+        for (int[] s : spots) {
+            n += decoy(p, s[0], 1, s[1], spec) ? 1 : 0;
+        }
+        return n;
+    }
+
+    /** Blühender Busch – nur auf Wiese (Gras, Moos, Erde). */
+    static boolean bushOnMeadow(Plan p, int x, int z) {
+        String ground = p.get(x, 0, z);
+        if (ground == null || !(ground.startsWith("grass_block") || ground.equals("moss_block")
+                || ground.equals("podzol") || ground.equals("dirt"))) {
+            return false;
+        }
+        return decoy(p, x, 1, z, "flowering_azalea");
+    }
+
     /** Laternenpfahl: drei Zaunpfosten, oben eine Laterne. */
     static void lanternPost(Plan p, int x, int y, int z, String fence) {
         for (int i = 0; i < 3; i++) {

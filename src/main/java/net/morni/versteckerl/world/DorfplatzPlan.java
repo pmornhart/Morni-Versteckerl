@@ -40,6 +40,7 @@ final class DorfplatzPlan {
         Decor.greenery(p, -HALF, -12, -14, -10, 2, r, DorfplatzPlan::road);
         booth(p, layout);
         Decor.flowers(p, -HALF, -HALF, HALF, HALF, 5, r, DorfplatzPlan::road);
+        shopDecoys(p);
         Decor.barrierBox(p, HALF, layout.ceiling());
         p.connect();
         return p;
@@ -478,6 +479,40 @@ final class DorfplatzPlan {
         p.set(4, 1, 24, "pumpkin");
         p.set(-5, 1, 22, "barrel[facing=up,open=false]");
         p.set(-6, 1, 22, "stripped_spruce_log[axis=y]");
+    }
+
+    /**
+     * Attrappen der Gestalten aus dem Kramerladen: Werkbänke, Schleifsteine und Webstühle in Schmiede, Holzlege, Stadel,
+     * Laden und Gärtchen, blühende Büsche auf den Wiesen, Kuchen auf Schänke, Biertischen und Ladentheke,
+     * Kürbislaternen im Laden, am Gartenzaun und am Ortseingang.
+     */
+    private static void shopDecoys(Plan p) {
+        Decor.decoys(p, "crafting_table", new int[] {8, 21}, new int[] {16, 21}, new int[] {17, -24},
+                new int[] {24, -24}, new int[] {16, -6}, new int[] {16, 6}, new int[] {-19, 17});
+        int[][] grind = {{13, 17}, {8, 19}, {21, -25}, {25, -22}, {24, -6}, {17, 4}};
+        for (int i = 0; i < grind.length; i++) {
+            Decor.decoy(p, grind[i][0], 1, grind[i][1], "grindstone[face=floor,facing=" + (i % 2 == 0 ? "north" : "east")
+                    + "]");
+        }
+        Decor.decoys(p, "loom[facing=east]", new int[] {-22, -7}, new int[] {-21, 3});
+        Decor.decoys(p, "loom[facing=west]", new int[] {-17, -7}, new int[] {-17, 3});
+        Decor.decoys(p, "loom[facing=south]", new int[] {-26, 19}, new int[] {-21, 22}, new int[] {-18, 16});
+        for (int[] b : new int[][] {{-12, 22}, {-6, 28}, {-18, 27}, {-28, 23}, {8, 28}, {24, 22}, {20, 24},
+            {28, 19}, {-28, -11}, {-20, -11}, {-14, -13}, {-24, 13}}) {
+            Decor.bushOnMeadow(p, b[0], b[1]);
+        }
+        // Kuchen auf der Schänke im Wirtshaus, auf den Biertischen und auf der Ladentheke
+        for (int[] c : new int[][] {{-7, -26}, {-3, -26}, {3, -26}, {-8, -15}, {4, -15}, {-19, -5}, {-19, 2}}) {
+            p.set(c[0], 2, c[1], "cake[bites=0]");
+        }
+        p.set(-26, 1, -6, "jack_o_lantern[facing=east]");
+        p.set(-26, 1, 0, "jack_o_lantern[facing=east]");
+        p.set(-12, 1, 2, "jack_o_lantern[facing=east]");
+        p.set(-24, 1, 7, "jack_o_lantern[facing=north]");
+        p.set(4, 1, 24, "jack_o_lantern[facing=south]");
+        Decor.decoy(p, -28, 2, 6, "jack_o_lantern[facing=north]");
+        Decor.decoy(p, -16, 2, 6, "jack_o_lantern[facing=north]");
+        Decor.decoy(p, 14, 1, -6, "jack_o_lantern[facing=west]");
     }
 
     private static void trees(Plan p, Random r) {

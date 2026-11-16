@@ -44,6 +44,7 @@ final class WirtshausPlan {
         Decor.greenery(p, -HALF, 22, HALF, HALF, 4, r, (x, z) -> Math.abs(x + 9) <= 2);
         DorfplatzPlan.booth(p, layout);
         Decor.flowers(p, -HALF, -HALF, HALF, HALF, 6, r, (x, z) -> Math.abs(x + 9) <= 1 && z > Z2);
+        shopDecoys(p);
         Decor.barrierBox(p, HALF, layout.ceiling());
         p.connect();
         return p;
@@ -446,6 +447,39 @@ final class WirtshausPlan {
         p.set(27, 1, 17, "spruce_stairs[facing=south,half=bottom,shape=straight]");
         p.set(27, 1, 10, LANTERN);
         p.set(25, 1, 2, "water_cauldron[level=2]");
+    }
+
+    /**
+     * Attrappen der Gestalten aus dem Kramerladen: Werkbänke in Hinterhof und Bierkeller (dazu die zwei in der Küche),
+     * Lesepulte in Stube, Gästezimmern und Tanzsaal, Kuchen und Festtagskuchen auf den Tischen, blühende Büsche vor
+     * dem Biergarten.
+     */
+    private static void shopDecoys(Plan p) {
+        Decor.decoys(p, "crafting_table", new int[] {11, -25}, new int[] {19, -25}, new int[] {9, -23});
+        Decor.decoy(p, -21, CELLAR_FLOOR + 1, -9, "crafting_table");
+        Decor.decoy(p, 17, CELLAR_FLOOR + 1, 2, "crafting_table");
+        String west = "lectern[facing=west,has_book=false,powered=false]";
+        Decor.decoy(p, 20, 1, -1, west);
+        Decor.decoy(p, 20, 1, 3, west);
+        Decor.decoy(p, 8, 1, -3, "lectern[facing=east,has_book=false,powered=false]");
+        int up = Kit.GROUND_TOP + 2;
+        Decor.decoy(p, 7, up, -8, "lectern[facing=north,has_book=false,powered=false]");
+        Decor.decoy(p, 7, up, 6, "lectern[facing=north,has_book=false,powered=false]");
+        Decor.decoy(p, -6, up, -14, "lectern[facing=north,has_book=false,powered=false]");
+        Decor.decoy(p, -18, up, -14, "lectern[facing=north,has_book=false,powered=false]");
+        // Kuchen: Gaststube, Schänke, Küchentisch, Tanzsaal (auf den Tischplatten)
+        for (int[] c : new int[][] {{-9, 2, -8}, {-5, 2, -3}, {-7, 2, 2}, {-17, 2, -13}, {10, 2, -12},
+            {-16, up + 1, -7}, {-4, up + 1, -6}}) {
+            p.set(c[0], c[1], c[2], "cake[bites=0]");
+        }
+        for (int[] c : new int[][] {{-10, up + 1, -8}, {-10, up + 1, -5}, {-16, up + 1, -9}, {-4, up + 1, -9},
+            {-13, 2, -13}, {-6, 2, -8}}) {
+            p.set(c[0], c[1], c[2], "candle_cake[lit=true]");
+        }
+        for (int[] b : new int[][] {{-20, 23}, {-14, 24}, {-4, 23}, {5, 24}, {13, 23}, {19, 24}, {-27, -10},
+            {-28, 12}, {26, 23}, {-24, 27}}) {
+            Decor.bushOnMeadow(p, b[0], b[1]);
+        }
     }
 
     /** Hinterhof im Norden: Kräuterbeet, Holzstoß, Waschkessel, Fässer. */
