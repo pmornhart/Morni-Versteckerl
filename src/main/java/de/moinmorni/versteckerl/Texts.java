@@ -61,6 +61,23 @@ public final class Texts {
                 "<au>❖</au> <em>Hide & Seek</em> <dark_gray>»</dark_gray> ");
         t("mode", "Versteckerl", "Hide & Seek");
         t("only-players", "Das geht nur im Spiel.", "Only possible in-game.");
+        // Verwaltung: Geld und Punkte zum Testen (Owner und Admins)
+        t("admin.money.usage", "<gray>So geht's: <white>/versteckerladmin geld [spieler] \\<betrag></white> – Guthaben "
+                + "für den Kramerladen (1 bis 1.000.000).</gray>", "<gray>Usage: <white>/versteckerladmin geld [player] "
+                + "\\<amount></white> – credit for the general store (1 to 1,000,000).</gray>");
+        t("admin.money.done", "<gray><white><name></white> hat <au><n> ✦</au> Guthaben bekommen – jetzt <au><total> ✦</au>.</gray>",
+                "<gray><white><name></white> got <au><n> ✦</au> credit – now <au><total> ✦</au>.</gray>");
+        t("admin.money.got", "<gray>Du hast <au><n> ✦</au> Guthaben bekommen – jetzt <au><total> ✦</au>. Viel Spaß beim Testen!</gray>",
+                "<gray>You got <au><n> ✦</au> credit – now <au><total> ✦</au>. Have fun testing!</gray>");
+        t("admin.points.usage", "<gray>So geht's: <white>/versteckerladmin punkte [spieler] \\<betrag></white> – Punkte "
+                + "in der laufenden Runde (1 bis 1.000.000).</gray>", "<gray>Usage: <white>/versteckerladmin punkte "
+                + "[player] \\<amount></white> – points in the running round (1 to 1,000,000).</gray>");
+        t("admin.points.done", "<gray><white><name></white> hat <au><n></au> Rundenpunkte bekommen – jetzt <au><total></au>.</gray>",
+                "<gray><white><name></white> got <au><n></au> round points – now <au><total></au>.</gray>");
+        t("admin.points.got", "<gray>Du hast <au><n></au> Rundenpunkte bekommen – jetzt <au><total></au>. Viel Spaß beim Testen!</gray>",
+                "<gray>You got <au><n></au> round points – now <au><total></au>. Have fun testing!</gray>");
+        t("admin.points.none", "<gray><white><name></white> spielt gerade keine Runde – Rundenpunkte gibt es nur dort.</gray>",
+                "<gray><white><name></white> isn't playing a round right now – round points only exist there.</gray>");
         t("not-ready", "<gray>Die Karten werden gerade gebaut – gleich geht's los!</gray>",
                 "<gray>The maps are being built – just a moment!</gray>");
         t("unknown-player", "<gray>Niemanden namens <white><name></white> gefunden.</gray>",
@@ -294,6 +311,17 @@ public final class Texts {
                 "<gray><white><player></white> now helps as a constable.</gray>");
         t("game.left", "<gray><white><player></white> hat die Runde verlassen.</gray>",
                 "<gray><white><player></white> left the round.</gray>");
+        // Zurück ins Spiel (Verbindung verloren, Platz bleibt eine Weile frei)
+        t("game.away", "<gray><white><player></white> hat die Verbindung verloren – der Platz bleibt <white><secs> Sekunden</white> frei.</gray>",
+                "<gray><white><player></white> lost the connection – the spot stays free for <white><secs> seconds</white>.</gray>");
+        t("game.away.late", "<gray><white><player></white> ist nicht rechtzeitig zurückgekommen und hat die Runde verlassen.</gray>",
+                "<gray><white><player></white> didn't make it back in time and left the round.</gray>");
+        t("game.back", "<gray>Willkommen zurück! Du bist wieder in der Runde – gleiche Rolle, gleiche Gestalt, gleiches Versteck, gleiche Punkte.</gray>",
+                "<gray>Welcome back! You're back in the round – same role, same disguise, same hiding spot, same points.</gray>");
+        t("game.back.title", "<em>Willkommen zurück!</em>", "<em>Welcome back!</em>");
+        t("game.back.sub", "<gray>Weiter geht's – genau da, wo du warst.</gray>", "<gray>Carry on – right where you left off.</gray>");
+        t("game.back.all", "<gray><white><player></white> ist zurück in der Runde.</gray>",
+                "<gray><white><player></white> is back in the round.</gray>");
         t("hide.soon", "<au>Die Gendarmen kommen in <secs> s!</au>", "<au>The constables come in <secs> s!</au>");
         t("seek.title", "<em>Die Suche beginnt!</em>", "<em>The search begins!</em>");
         t("seek.sub.seeker", "<gray>Finde alle Versteckten!</gray>", "<gray>Find all the hiders!</gray>");

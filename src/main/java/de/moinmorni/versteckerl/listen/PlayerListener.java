@@ -39,6 +39,16 @@ public final class PlayerListener implements Listener {
         Player p = e.getPlayer();
         e.joinMessage(null);
         plugin.data(p);
+        // Zurück ins Spiel: Wartet eine Runde noch auf diese Person, geht es dort weiter, wo sie war.
+        Game held = plugin.games().waitingFor(p.getUniqueId());
+        if (held != null && held.rejoin(p)) {
+            return;
+        }
+        // Runde inzwischen vorbei (Nachspiel): dort nicht mehr mitzählen.
+        Game over = plugin.games().playing(p.getUniqueId());
+        if (over != null) {
+            over.forgetAbsent(p);
+        }
         plugin.hall().enter(p);
         plugin.games().applyVisibility(p);
         String lang = plugin.lang(p);
@@ -74,7 +84,7 @@ public final class PlayerListener implements Listener {
         plugin.hall().leave(p.getUniqueId());
         Game g = plugin.games().of(p.getUniqueId());
         if (g != null) {
-            g.leave(p);
+            g.quit(p);
         }
         plugin.boards().sidebar().forget(p.getUniqueId());
         plugin.shop().forget(p.getUniqueId());
@@ -102,8 +112,9 @@ public final class PlayerListener implements Listener {
                 case "stats" -> HallMenus.stats(plugin, p);
                 case "shop" -> ShopMenus.open(plugin, p);
                 case "lobby" -> {
+                    // Das Netzwerk fragt nach, falls jemand gerade spielt (in der Gendarmerie geht es sofort).
                     p.sendMessage(Texts.msg(plugin.lang(p), "lobby.going"));
-                    plugin.net().toLobby(p, Texts.text(plugin.lang(p), "lobby.kick"));
+                    plugin.net().askToLobby(p, Texts.text(plugin.lang(p), "lobby.kick"));
                 }
                 default -> {
                 }

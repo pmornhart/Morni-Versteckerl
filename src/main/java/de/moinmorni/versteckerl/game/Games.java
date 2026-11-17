@@ -55,6 +55,16 @@ public final class Games {
         return null;
     }
 
+    /** Runde, die auf jemanden wartet, der die Verbindung verloren hat (Platz noch frei) – sonst null. */
+    public Game waitingFor(UUID uuid) {
+        for (Game g : running.values()) {
+            if (g.waitingFor(uuid)) {
+                return g;
+            }
+        }
+        return null;
+    }
+
     /** Runde, in der jemand mitspielt (nicht zuschauend). */
     public Game playing(UUID uuid) {
         for (Game g : running.values()) {

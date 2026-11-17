@@ -5,7 +5,9 @@ import java.util.Map;
 import java.util.UUID;
 import de.moinmorni.versteckerl.rules.Helps;
 import de.moinmorni.versteckerl.rules.Settlement;
+import de.moinmorni.versteckerl.rules.Shape;
 import org.bukkit.Location;
+import org.bukkit.block.Block;
 
 /**
  * Wer in einer Runde mitspielt: Rolle, Punkte und der Zustand als Versteckter bzw. Gendarm. {@code points} sind die in
@@ -56,8 +58,18 @@ public final class Member {
     Location lastPos;
     boolean lockHint;
     boolean warned;
+    /**
+     * Gestalt und Versteck, solange jemand nach einem Verbindungsabbruch weg ist: Die Anzeige und der eingerastete Block
+     * verschwinden so lange (niemand soll einen Block suchen, der nicht gefunden werden kann) und kommen beim
+     * Wiederkommen zurück.
+     */
+    Shape awayShape;
+    Block awayCell;
+    double awayFeetY;
 
     // ---------- als Gendarm ----------
+    /** Schon aus der Gendarmenstube gelassen (Suchzeit)? */
+    boolean released;
     boolean sniffUsed;
     UUID sniffTarget;
     long sniffUntil;
